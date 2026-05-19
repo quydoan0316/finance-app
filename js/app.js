@@ -28,7 +28,7 @@ const App = (() => {
   }
 
   function applyTheme() {
-    const theme = localStorage.getItem(Storage.keys.theme);
+    const theme = localStorage.getItem(Storage.keys.theme) || "dark";
     document.body.classList.toggle("dark", theme === "dark");
     document.getElementById("themeToggle").textContent = theme === "dark" ? "Chế độ sáng" : "Chế độ tối";
   }
