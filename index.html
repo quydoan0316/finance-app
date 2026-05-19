@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinanceFlow - Quản lý chi tiêu</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">F</span>
+        <div>
+          <strong>FinanceFlow</strong>
+          <small>Ngân sách cá nhân</small>
+        </div>
+      </div>
+      <nav class="nav-list" aria-label="Điều hướng chính">
+        <button class="nav-item active" data-view="dashboard">Tổng quan</button>
+        <button class="nav-item" data-view="assets">Tài sản</button>
+        <button class="nav-item" data-view="transactions">Giao dịch</button>
+        <button class="nav-item" data-view="categories">Danh mục</button>
+        <button class="nav-item" data-view="budgets">Ngân sách</button>
+        <button class="nav-item" data-view="recurring">Định kỳ</button>
+      </nav>
+      <button class="theme-toggle" id="themeToggle" type="button">Chế độ tối</button>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Hôm nay</p>
+          <h1>Quản lý chi tiêu cá nhân</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" id="exportBtn" type="button">Xuất CSV</button>
+          <button class="btn btn-primary" id="addTransactionBtn" type="button">Thêm giao dịch</button>
+        </div>
+      </header>
+
+      <section class="view" id="assetsView">
+        <section class="panel asset-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Tài sản</h2>
+              <p>Tiền sẵn dùng, khoản phải thu và thu nhập dự kiến</p>
+            </div>
+            <div class="row-actions">
+              <button class="btn btn-secondary" id="addReceivableBtn" type="button">Thêm khoản phải thu</button>
+              <button class="btn btn-primary" id="addExpectedIncomeBtn" type="button">Thêm khoản dự kiến</button>
+            </div>
+          </div>
+          <div class="asset-summary" id="assetSummary"></div>
+          <div class="asset-sources" id="assetSources"></div>
+        </section>
+      </section>
+
+      <section class="view active" id="dashboardView">
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="dashboard-layout">
+          <section class="panel chart-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Chi tiêu theo danh mục</h2>
+                <p>Tháng hiện tại</p>
+              </div>
+            </div>
+            <canvas id="categoryChart" height="220"></canvas>
+          </section>
+
+          <section class="panel chart-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Dòng tiền theo tháng</h2>
+                <p>Thu nhập và chi tiêu</p>
+              </div>
+            </div>
+            <canvas id="monthlyChart" height="220"></canvas>
+          </section>
+
+          <section class="panel chart-panel wide">
+            <div class="panel-header">
+              <div>
+                <h2>Số dư theo thời gian</h2>
+                <p>Lũy kế từ giao dịch</p>
+              </div>
+            </div>
+            <canvas id="balanceChart" height="150"></canvas>
+          </section>
+        </div>
+
+        <div class="split-layout">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Giao dịch gần đây</h2>
+                <p>5 giao dịch mới nhất</p>
+              </div>
+            </div>
+            <div class="compact-list" id="recentTransactions"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Tình trạng ngân sách</h2>
+                <p>Theo danh mục trong tháng</p>
+              </div>
+            </div>
+            <div class="budget-list" id="budgetStatus"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="transactionsView">
+        <div class="toolbar panel">
+          <input id="searchInput" type="search" placeholder="Tìm ghi chú, danh mục, ví...">
+          <select id="monthFilter"></select>
+          <select id="typeFilter">
+            <option value="all">Tất cả loại</option>
+            <option value="income">Thu nhập</option>
+            <option value="expense">Chi tiêu</option>
+          </select>
+          <select id="categoryFilter">
+            <option value="all">Tất cả danh mục</option>
+          </select>
+        </div>
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Danh sách giao dịch</h2>
+              <p>Tìm kiếm, lọc, chỉnh sửa và xóa</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Loại</th>
+                  <th>Danh mục</th>
+                  <th>Ví</th>
+                  <th>Ghi chú</th>
+                  <th class="align-right">Số tiền</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="transactionsTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="categoriesView">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Danh mục</h2>
+              <p>Quản lý danh mục thu nhập và chi tiêu</p>
+            </div>
+            <button class="btn btn-primary" id="addCategoryBtn" type="button">Thêm danh mục</button>
+          </div>
+          <div class="category-grid" id="categoryGrid"></div>
+        </section>
+      </section>
+
+      <section class="view" id="budgetsView">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Ngân sách</h2>
+              <p>Đặt giới hạn chi tiêu theo tháng và danh mục</p>
+            </div>
+            <button class="btn btn-primary" id="addBudgetBtn" type="button">Thêm ngân sách</button>
+          </div>
+          <div class="budget-list" id="budgetList"></div>
+        </section>
+      </section>
+
+      <section class="view" id="recurringView">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Thanh toán định kỳ</h2>
+              <p>Netflix, tiền nhà, internet và các khoản lặp lại</p>
+            </div>
+            <button class="btn btn-primary" id="addRecurringBtn" type="button">Thêm khoản định kỳ</button>
+          </div>
+          <div class="compact-list" id="recurringList"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h2 id="modalTitle">Biểu mẫu</h2>
+        <button class="icon-btn" type="button" data-close-modal aria-label="Đóng">x</button>
+      </div>
+      <form id="modalForm" class="form-grid"></form>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/transaction.js"></script>
+  <script src="js/budget.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
