@@ -85,6 +85,7 @@ const App = (() => {
     });
 
     document.getElementById("addTransactionBtn").addEventListener("click", () => openTransactionForm());
+    document.getElementById("addWalletBtn").addEventListener("click", () => openWalletForm());
     document.getElementById("addReceivableBtn").addEventListener("click", () => openReceivableForm());
     document.getElementById("addExpectedIncomeBtn").addEventListener("click", () => openExpectedIncomeForm());
     document.getElementById("addCategoryBtn").addEventListener("click", () => openCategoryForm());

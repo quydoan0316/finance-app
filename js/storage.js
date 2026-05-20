@@ -36,10 +36,7 @@ const Storage = (() => {
       { id: "bd_transport", category: "Di chuyển", month: "2026-05", amount: 900000 },
       { id: "bd_bills", category: "Hóa đơn", month: "2026-05", amount: 2000000 }
     ],
-    recurring: [
-      { id: "rc_netflix", name: "Netflix", amount: 180000, cycle: "monthly" },
-      { id: "rc_internet", name: "Internet", amount: 250000, cycle: "monthly" }
-    ]
+    recurring: []
   };
 
   const viLabels = {
