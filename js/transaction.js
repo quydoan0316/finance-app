@@ -23,7 +23,10 @@ const Transactions = (() => {
       amount: Number(data.amount),
       wallet: data.wallet || "Tiền mặt",
       note: data.note || "",
-      date: data.date || Utils.today()
+      date: data.date || Utils.today(),
+      sourceType: data.sourceType || "",
+      sourceId: data.sourceId || "",
+      sourceEventId: data.sourceEventId || ""
     };
 
     if (data.id) {
