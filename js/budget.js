@@ -123,12 +123,50 @@ const Budget = (() => {
     return true;
   }
 
+  function isVariableAmount(item) {
+    return item?.amountVariable === true;
+  }
+
+  function recurringAmountLabel(item) {
+    if (isVariableAmount(item)) return "Theo hóa đơn";
+    if (Number(item?.amount) > 0) return Utils.formatMoney(item.amount);
+    return "—";
+  }
+
+  function recurringPeriodLabel(item, month) {
+    if (item?.cycle === "yearly") return `Năm ${month.slice(0, 4)}`;
+    return Utils.getMonthLabel(month);
+  }
+
+  function paymentMatchesPeriod(transaction, item, month) {
+    if (!transaction?.recurringId || transaction.recurringId !== item.id) return false;
+    if (item.cycle === "yearly") return transaction.date.startsWith(month.slice(0, 4));
+    return transaction.date.startsWith(month);
+  }
+
+  function findRecurringPayment(transactions, item, month) {
+    return (Array.isArray(transactions) ? transactions : [])
+      .filter((tx) => paymentMatchesPeriod(tx, item, month))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))[0] || null;
+  }
+
+  function isPaidInPeriod(transactions, item, month) {
+    return !!findRecurringPayment(transactions, item, month);
+  }
+
   function upsertRecurring(data) {
+    const paymentType = data.paymentType === "income" ? "income" : "expense";
+    const amountVariable = data.amountVariable === true || data.amountVariable === "on";
+    const amount = amountVariable ? 0 : Number(data.amount) || 0;
     const item = {
       id: data.id || Utils.createId("rc"),
       name: data.name,
-      amount: Number(data.amount),
-      cycle: data.cycle || "monthly"
+      amount,
+      amountVariable,
+      cycle: data.cycle || "monthly",
+      paymentType,
+      category: String(data.category || "").trim(),
+      wallet: String(data.wallet || "").trim()
     };
     saveRecurring(data.id ? recurring.map((entry) => entry.id === data.id ? item : entry) : [item, ...recurring]);
   }
@@ -171,6 +209,11 @@ const Budget = (() => {
     upsertRecurring,
     removeRecurring,
     findRecurring,
+    isVariableAmount,
+    recurringAmountLabel,
+    recurringPeriodLabel,
+    findRecurringPayment,
+    isPaidInPeriod,
     statusFor
   };
 })();

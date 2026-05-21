@@ -167,8 +167,14 @@ const App = (() => {
       document.getElementById(id).addEventListener("input", renderBudgets);
     });
 
-    ["recurringSearchInput", "recurringCycleFilter"].forEach((id) => {
-      document.getElementById(id).addEventListener("input", renderRecurring);
+    const recurringMonthInput = document.getElementById("recurringMonthInput");
+    if (recurringMonthInput && !recurringMonthInput.value) {
+      recurringMonthInput.value = Utils.currentMonth();
+    }
+    ["recurringMonthInput", "recurringSearchInput", "recurringCycleFilter", "recurringStatusFilter"].forEach((id) => {
+      const node = document.getElementById(id);
+      if (node) node.addEventListener("input", renderRecurring);
+      if (node) node.addEventListener("change", renderRecurring);
     });
   }
 
@@ -235,6 +241,43 @@ const App = (() => {
       names.unshift(selected);
     }
     return options(names, selected);
+  }
+
+  function defaultWalletName() {
+    return wallets[0]?.name || "Tiền mặt";
+  }
+
+  function defaultCategoryForType(type) {
+    const pool = categories.filter((cat) => cat.type === type);
+    const preferred = type === "expense" ? "Hóa đơn" : "Lương";
+    const match = pool.find((cat) => cat.name === preferred);
+    return match?.name || pool[0]?.name || "";
+  }
+
+  function recurringViewMonth() {
+    return fieldValue("recurringMonthInput") || Utils.currentMonth();
+  }
+
+  function defaultRecurringPaymentDate(viewMonth) {
+    const today = Utils.today();
+    if (today.startsWith(viewMonth)) return today;
+    const [year, month] = viewMonth.split("-").map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
+    return `${viewMonth}-${String(lastDay).padStart(2, "0")}`;
+  }
+
+  function bindRecurringAmountToggle() {
+    const checkbox = document.getElementById("recurringAmountVariable");
+    const amountInput = document.getElementById("recurringAmountInput");
+    if (!checkbox || !amountInput) return;
+    const sync = () => {
+      const variable = checkbox.checked;
+      amountInput.disabled = variable;
+      amountInput.required = !variable;
+      if (variable) amountInput.value = "";
+    };
+    checkbox.addEventListener("change", sync);
+    sync();
   }
 
   function findWallet(name) {
@@ -1302,26 +1345,59 @@ const App = (() => {
   function renderRecurring() {
     const query = normalizeSearch(fieldValue("recurringSearchInput"));
     const cycle = fieldValue("recurringCycleFilter", "all");
-    const recurring = Budget.allRecurring().filter((item) => {
+    const status = fieldValue("recurringStatusFilter", "all");
+    const viewMonth = recurringViewMonth();
+    const transactions = Transactions.all();
+    const all = Budget.allRecurring();
+
+    const filtered = all.filter((item) => {
       const cycleText = item.cycle === "monthly" ? "Hàng tháng" : "Hàng năm";
+      const amountText = Budget.isVariableAmount(item) ? "Theo hóa đơn" : String(item.amount || "");
+      const paid = Budget.isPaidInPeriod(transactions, item, viewMonth);
       const matchCycle = cycle === "all" || item.cycle === cycle;
-      const matchSearch = includesSearch([item.name, item.amount, cycleText], query);
-      return matchCycle && matchSearch;
+      const matchSearch = includesSearch([item.name, amountText, cycleText], query);
+      const matchStatus = status === "all" || (status === "paid" && paid) || (status === "unpaid" && !paid);
+      return matchCycle && matchSearch && matchStatus;
     });
 
-    document.getElementById("recurringList").innerHTML = recurring.length ? recurring.map((item) => `
-      <div class="list-row">
+    const paidCount = all.filter((item) => Budget.isPaidInPeriod(transactions, item, viewMonth)).length;
+    const summaryNode = document.getElementById("recurringSummary");
+    if (summaryNode) {
+      summaryNode.textContent = all.length
+        ? `Kỳ ${Utils.getMonthLabel(viewMonth)}: ${paidCount}/${all.length} đã thanh toán (hàng tháng theo tháng · hàng năm theo năm ${viewMonth.slice(0, 4)})`
+        : "";
+    }
+
+    document.getElementById("recurringList").innerHTML = filtered.length ? filtered.map((item) => {
+      const payment = Budget.findRecurringPayment(transactions, item, viewMonth);
+      const paid = !!payment;
+      const periodHint = Budget.recurringPeriodLabel(item, viewMonth);
+      const statusBadge = paid
+        ? `<span class="badge recurring-paid">Đã thanh toán</span>`
+        : `<span class="badge recurring-unpaid">Chưa thanh toán</span>`;
+      const paidDetail = paid
+        ? `<small class="recurring-paid-detail">${Utils.formatMoney(payment.amount)} · ${payment.date}</small>`
+        : "";
+      const payLabel = paid ? "Ghi thêm" : "Thanh toán";
+
+      return `
+      <div class="list-row recurring-row ${paid ? "is-paid" : "is-unpaid"}">
         <div>
-          <strong>${Utils.escapeHtml(item.name)}</strong>
-          <small>${item.cycle === "monthly" ? "Hàng tháng" : "Hàng năm"}</small>
+          <div class="recurring-row-title">
+            <strong>${Utils.escapeHtml(item.name)}</strong>
+            ${statusBadge}
+          </div>
+          <small>${item.cycle === "monthly" ? "Hàng tháng" : "Hàng năm"} · ${periodHint} · ${Budget.recurringAmountLabel(item)}</small>
+          ${paidDetail}
         </div>
         <span class="row-actions">
-          <strong>${Utils.formatMoney(item.amount)}</strong>
+          <button class="btn btn-secondary btn-compact" type="button" onclick="App.openRecurringPaymentForm('${item.id}')">${payLabel}</button>
           <button class="icon-btn action-edit" type="button" onclick="App.openRecurringForm('${item.id}')" aria-label="Sửa khoản định kỳ" title="Sửa">✎</button>
           <button class="icon-btn action-delete" type="button" onclick="App.deleteRecurring('${item.id}')" aria-label="Xóa khoản định kỳ" title="Xóa">🗑</button>
         </span>
       </div>
-    `).join("") : `<p class="empty-state">Không tìm thấy khoản định kỳ phù hợp.</p>`;
+    `;
+    }).join("") : `<p class="empty-state">Không có khoản định kỳ phù hợp bộ lọc.</p>`;
   }
 
   function openModal(title, html, onSubmit) {
@@ -1971,16 +2047,24 @@ const App = (() => {
   }
 
   function openRecurringForm(id) {
-    const item = id ? Budget.findRecurring(id) : { cycle: "monthly" };
+    const item = id ? Budget.findRecurring(id) : { cycle: "monthly", paymentType: "expense" };
+    const paymentType = item.paymentType === "income" ? "income" : "expense";
+    const defaultCategory = item.category || defaultCategoryForType(paymentType);
+    const defaultWallet = item.wallet || defaultWalletName();
+    const amountVariable = Budget.isVariableAmount(item);
     openModal(id ? "Chỉnh sửa khoản định kỳ" : "Thêm khoản định kỳ", `
       <input type="hidden" name="id" value="${item.id || ""}">
       <div class="form-field">
         <label>Tên</label>
         <input name="name" required value="${Utils.escapeHtml(item.name || "")}">
       </div>
+      <label class="checkbox-field full">
+        <input type="checkbox" name="amountVariable" id="recurringAmountVariable" ${amountVariable ? "checked" : ""}>
+        <span>Số tiền thay đổi theo kỳ (điện, nước, gas…)</span>
+      </label>
       <div class="form-field">
-        <label>Số tiền</label>
-        <input name="amount" type="number" min="1" required value="${item.amount || ""}">
+        <label>Số tiền cố định</label>
+        <input id="recurringAmountInput" name="amount" type="number" min="1" value="${amountVariable ? "" : (item.amount || "")}">
       </div>
       <div class="form-field full">
         <label>Chu kỳ</label>
@@ -1989,12 +2073,131 @@ const App = (() => {
           <option value="yearly" ${item.cycle === "yearly" ? "selected" : ""}>Hàng năm</option>
         </select>
       </div>
+      <div class="form-field">
+        <label>Loại khi thanh toán</label>
+        <select name="paymentType" id="recurringPaymentType">
+          <option value="expense" ${paymentType === "expense" ? "selected" : ""}>Chi tiêu</option>
+          <option value="income" ${paymentType === "income" ? "selected" : ""}>Thu nhập</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Danh mục mặc định</label>
+        <select name="category" id="recurringCategory">${categoryOptions(paymentType, defaultCategory)}</select>
+      </div>
+      <div class="form-field">
+        <label>Ví mặc định</label>
+        <select name="wallet">${walletOptions(defaultWallet)}</select>
+      </div>
+      <p class="full recurring-form-hint">Khi bấm <strong>Thanh toán</strong>, app tạo giao dịch với các mục trên (có thể sửa trước khi lưu). Kỳ đã trả hay chưa xem theo <strong>tháng/năm đang chọn</strong> trên màn Định kỳ.</p>
       <div class="form-actions">
         <button class="btn btn-secondary" type="button" data-close-modal>Hủy</button>
         <button class="btn btn-primary" type="submit">Lưu</button>
       </div>
-    `, (data) => Budget.upsertRecurring(data));
+    `, (data) => {
+      const variable = data.amountVariable === "on";
+      if (!variable && !(Number(data.amount) > 0)) {
+        alert("Nhập số tiền cố định hoặc tick \"Số tiền thay đổi theo kỳ\".");
+        return false;
+      }
+      Budget.upsertRecurring(data);
+    });
     document.querySelector("#modalForm [data-close-modal]").addEventListener("click", closeModal);
+    document.getElementById("recurringPaymentType").addEventListener("change", (event) => {
+      document.getElementById("recurringCategory").innerHTML = categoryOptions(event.target.value);
+    });
+    bindRecurringAmountToggle();
+  }
+
+  function openRecurringPaymentForm(id) {
+    const recurring = Budget.findRecurring(id);
+    if (!recurring) return;
+    if (!wallets.length) {
+      alert("Hãy thêm ít nhất một ví trước khi ghi nhận thanh toán.");
+      return;
+    }
+
+    const viewMonth = recurringViewMonth();
+    const paymentType = recurring.paymentType === "income" ? "income" : "expense";
+    const category = recurring.category || defaultCategoryForType(paymentType);
+    const wallet = recurring.wallet || defaultWalletName();
+    const typeLabel = paymentType === "income" ? "Thu nhập" : "Chi tiêu";
+    const variable = Budget.isVariableAmount(recurring);
+    const existing = Budget.findRecurringPayment(Transactions.all(), recurring, viewMonth);
+    const periodLabel = Budget.recurringPeriodLabel(recurring, viewMonth);
+    const amountValue = variable ? "" : (recurring.amount || "");
+    const defaultDate = defaultRecurringPaymentDate(viewMonth);
+
+    if (existing) {
+      const again = confirm(
+        `${periodLabel} đã ghi nhận ${Utils.formatMoney(existing.amount)} (${existing.date}). Ghi thêm một lần nữa?`
+      );
+      if (!again) return;
+    }
+
+    openModal(`Thanh toán: ${recurring.name}`, `
+      <p class="full recurring-form-hint">Kỳ đang xem: <strong>${periodLabel}</strong>. Chọn <strong>ngày giao dịch</strong> trong kỳ đó để đánh dấu đã thanh toán đúng tháng/năm.</p>
+      <p class="full recurring-form-hint">Ghi nhận <strong>${typeLabel}</strong> — trừ hoặc cộng ví sau khi bạn bấm Lưu.</p>
+      <div class="form-field">
+        <label>Loại</label>
+        <select name="type" id="recurringPayType">
+          <option value="expense" ${paymentType === "expense" ? "selected" : ""}>Chi tiêu</option>
+          <option value="income" ${paymentType === "income" ? "selected" : ""}>Thu nhập</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Danh mục</label>
+        <select name="category" id="recurringPayCategory">${categoryOptions(paymentType, category)}</select>
+      </div>
+      <div class="form-field">
+        <label>Số tiền${variable ? " (theo hóa đơn)" : ""}</label>
+        <input name="amount" type="number" min="1" required value="${amountValue}" placeholder="${variable ? "Nhập số trên hóa đơn" : ""}">
+      </div>
+      <div class="form-field">
+        <label>Ví</label>
+        <select name="wallet" required>${walletOptions(wallet)}</select>
+      </div>
+      <div class="form-field">
+        <label>Ngày</label>
+        <input name="date" type="date" required value="${defaultDate}">
+      </div>
+      <div class="form-field full">
+        <label>Ghi chú</label>
+        <input name="note" value="${Utils.escapeHtml(recurring.name || "")}">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-close-modal>Hủy</button>
+        <button class="btn btn-primary" type="submit">Lưu thanh toán</button>
+      </div>
+    `, (data) => {
+      const amount = Number(data.amount) || 0;
+      if (amount <= 0) {
+        alert("Số tiền phải lớn hơn 0.");
+        return false;
+      }
+      if (data.type === "expense") {
+        const payer = findWallet(data.wallet);
+        if (payer && Number(payer.balance) < amount) {
+          const ok = confirm(
+            `Ví "${data.wallet}" còn ${Utils.formatMoney(payer.balance)}, nhỏ hơn số thanh toán. Bạn vẫn tiếp tục?`
+          );
+          if (!ok) return false;
+        }
+      }
+      return saveTransaction({
+        type: data.type,
+        category: data.category,
+        amount,
+        wallet: data.wallet,
+        date: data.date || Utils.today(),
+        note: data.note || recurring.name,
+        recurringId: recurring.id
+      }) !== false;
+    });
+
+    document.querySelector("#modalForm [data-close-modal]").addEventListener("click", closeModal);
+    document.getElementById("recurringPayType").addEventListener("change", (event) => {
+      document.getElementById("recurringPayCategory").innerHTML = categoryOptions(event.target.value);
+    });
   }
 
   function deleteTransaction(id) {
@@ -2151,6 +2354,7 @@ const App = (() => {
     deleteBudgetOverride,
     deleteBudget,
     openRecurringForm,
+    openRecurringPaymentForm,
     deleteRecurring
   };
 })();

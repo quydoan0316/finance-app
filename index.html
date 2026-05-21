@@ -277,7 +277,13 @@
             </div>
             <button class="btn btn-primary" id="addRecurringBtn" type="button">Thêm khoản định kỳ</button>
           </div>
-          <div class="list-filter">
+          <div class="list-filter recurring-filters">
+            <input id="recurringMonthInput" type="month" aria-label="Tháng xem kỳ thanh toán">
+            <select id="recurringStatusFilter" aria-label="Lọc trạng thái thanh toán">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="unpaid">Chưa thanh toán</option>
+              <option value="paid">Đã thanh toán</option>
+            </select>
             <input id="recurringSearchInput" type="search" placeholder="Tìm khoản định kỳ...">
             <select id="recurringCycleFilter">
               <option value="all">Tất cả chu kỳ</option>
@@ -285,6 +291,7 @@
               <option value="yearly">Hàng năm</option>
             </select>
           </div>
+          <p class="recurring-summary" id="recurringSummary"></p>
           <div class="compact-list" id="recurringList"></div>
         </section>
       </section>

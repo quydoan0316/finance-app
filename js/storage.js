@@ -160,7 +160,8 @@ const Storage = (() => {
       sourceEventId: item.sourceEventId || "",
       transferTo: translate(item.transferTo) || String(item.transferTo || "").trim(),
       transferGroupId: item.transferGroupId || "",
-      transferRole: item.transferRole || ""
+      transferRole: item.transferRole || "",
+      recurringId: item.recurringId || ""
     };
   }
 

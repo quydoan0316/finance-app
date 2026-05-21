@@ -443,6 +443,64 @@ th {
   font-weight: 700;
 }
 
+.btn-compact {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.recurring-form-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.recurring-summary {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.recurring-filters {
+  flex-wrap: wrap;
+}
+
+.recurring-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge.recurring-paid {
+  background: rgba(19, 166, 111, 0.15);
+  color: #13a66f;
+}
+
+.badge.recurring-unpaid {
+  background: rgba(224, 90, 71, 0.12);
+  color: #e05a47;
+}
+
+.recurring-paid-detail {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.checkbox-field input {
+  margin-top: 3px;
+}
+
 .transfer-form-hint {
   margin: 0;
   color: var(--muted);

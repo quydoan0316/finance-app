@@ -119,7 +119,8 @@ const Backup = (() => {
       sourceEventId: tx.sourceEventId || "",
       transferTo: tx.transferTo || "",
       transferGroupId: tx.transferGroupId || "",
-      transferRole: tx.transferRole || ""
+      transferRole: tx.transferRole || "",
+      recurringId: tx.recurringId || ""
     };
   }
 
@@ -163,11 +164,16 @@ const Backup = (() => {
   }
 
   function normalizeRecurring(item) {
+    const amountVariable = item.amountVariable === true || item.amountVariable === "on";
     return {
       id: item.id || Utils.createId("rc"),
       name: String(item.name || "").trim(),
-      amount: Number(item.amount) || 0,
-      cycle: item.cycle || "monthly"
+      amount: amountVariable ? 0 : Number(item.amount) || 0,
+      amountVariable,
+      cycle: item.cycle || "monthly",
+      paymentType: item.paymentType === "income" ? "income" : "expense",
+      category: Storage.translate(item.category) || String(item.category || "").trim(),
+      wallet: Storage.translate(item.wallet) || String(item.wallet || "").trim()
     };
   }
 
