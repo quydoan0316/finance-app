@@ -106,7 +106,30 @@ Danh mục sẽ được dùng khi thêm giao dịch, tạo ngân sách và ghi 
 
 Vào mục `Ngân sách`.
 
-Bạn có thể đặt hạn mức theo tháng và danh mục. Dashboard sẽ hiển thị trạng thái đã chi và còn lại trong tháng hiện tại.
+Bạn có thể đặt hạn mức theo danh mục và chọn kiểu áp dụng:
+
+- `Hàng tháng`: tự áp dụng cho các tháng sau.
+- `Chỉ một tháng`: chỉ dùng cho tháng đã chọn.
+- `Theo khoảng tháng`: áp dụng từ tháng bắt đầu đến tháng kết thúc.
+
+Mục `Ngân sách` có bộ chọn tháng để xem tổng kết:
+
+- tổng ngân sách
+- tổng đã chi
+- còn lại hoặc vượt
+- trạng thái dư / vừa đủ / vượt ngân sách
+
+Khi bấm vào một dòng ngân sách, app sẽ mở chi tiết:
+
+- hạn mức
+- đã chi
+- còn lại hoặc vượt
+- số tiền chi theo từng ví
+- danh sách giao dịch liên quan đến ngân sách đó trong tháng đang xem
+
+Nếu một ngân sách hằng tháng hoặc theo khoảng tháng chỉ thay đổi ở một tháng cụ thể, bấm vào ngân sách đó rồi chọn `Chỉnh riêng tháng này`. Hạn mức riêng chỉ áp dụng cho tháng đang xem, các tháng khác vẫn dùng hạn mức mặc định. Có thể dùng `Bỏ chỉnh riêng` để quay lại mức mặc định.
+
+Dashboard sẽ hiển thị trạng thái ngân sách của tháng hiện tại.
 
 ## 7. Nhập / Xuất JSON
 
@@ -235,8 +258,10 @@ Lưu ý:
 
 ### Ngân sách
 
-- tạo ngân sách theo tháng
-- theo dõi đã chi và còn lại theo danh mục
+- tạo ngân sách theo danh mục
+- áp dụng ngân sách một tháng, hằng tháng hoặc theo khoảng tháng
+- xem tổng kết ngân sách theo tháng
+- xem chi tiết từng ngân sách theo ví và giao dịch liên quan
 
 ### Định kỳ
 

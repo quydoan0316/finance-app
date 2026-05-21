@@ -3,8 +3,31 @@ const Budget = (() => {
   let recurring = [];
 
   function load() {
-    budgets = Storage.read("budgets", []);
+    budgets = Storage.read("budgets", []).map(normalizeBudget);
+    Storage.write("budgets", budgets);
     recurring = Storage.read("recurring", []);
+  }
+
+  function normalizeBudget(budget) {
+    const startMonth = budget.startMonth || budget.month || Utils.currentMonth();
+    const recurrence = budget.recurrence || "once";
+    const overrides = Array.isArray(budget.overrides)
+      ? budget.overrides.map((item) => ({
+        month: item.month,
+        amount: Number(item.amount) || 0,
+        note: item.note || ""
+      })).filter((item) => item.month && item.amount > 0)
+      : [];
+    return {
+      id: budget.id || Utils.createId("bd"),
+      category: budget.category,
+      amount: Number(budget.amount) || 0,
+      recurrence,
+      startMonth,
+      endMonth: budget.endMonth || (recurrence === "once" ? startMonth : ""),
+      active: budget.active !== false,
+      overrides
+    };
   }
 
   function allBudgets() {
@@ -26,12 +49,19 @@ const Budget = (() => {
   }
 
   function upsertBudget(data) {
-    const item = {
+    const existing = data.id ? findBudget(data.id) : null;
+    const recurrence = data.recurrence || "monthly";
+    const startMonth = data.startMonth || data.month || Utils.currentMonth();
+    const item = normalizeBudget({
       id: data.id || Utils.createId("bd"),
       category: data.category,
-      month: data.month || Utils.currentMonth(),
-      amount: Number(data.amount)
-    };
+      amount: Number(data.amount),
+      recurrence,
+      startMonth,
+      endMonth: recurrence === "once" ? startMonth : data.endMonth,
+      active: data.active === "on" || data.active === true || data.active === undefined,
+      overrides: existing?.overrides || data.overrides || []
+    });
     saveBudgets(data.id ? budgets.map((budget) => budget.id === data.id ? item : budget) : [item, ...budgets]);
   }
 
@@ -41,6 +71,56 @@ const Budget = (() => {
 
   function findBudget(id) {
     return budgets.find((budget) => budget.id === id);
+  }
+
+  function appliesToMonth(budget, month) {
+    if (!budget.active) return false;
+    if (budget.recurrence === "once") return budget.startMonth === month;
+    if (budget.recurrence === "range") {
+      return budget.startMonth <= month && (!budget.endMonth || month <= budget.endMonth);
+    }
+    return budget.startMonth <= month && (!budget.endMonth || month <= budget.endMonth);
+  }
+
+  function overrideForMonth(budget, month) {
+    return (budget.overrides || []).find((item) => item.month === month);
+  }
+
+  function effectiveAmount(budget, month) {
+    const override = overrideForMonth(budget, month);
+    return override ? Number(override.amount) || 0 : Number(budget.amount) || 0;
+  }
+
+  function upsertOverride(id, data) {
+    const budget = findBudget(id);
+    if (!budget) return false;
+
+    const override = {
+      month: data.month || Utils.currentMonth(),
+      amount: Number(data.amount) || 0,
+      note: data.note || ""
+    };
+
+    if (!override.month || override.amount <= 0) return false;
+
+    const overrides = [
+      override,
+      ...(budget.overrides || []).filter((item) => item.month !== override.month)
+    ].sort((a, b) => b.month.localeCompare(a.month));
+
+    saveBudgets(budgets.map((item) => item.id === id ? { ...item, overrides } : item));
+    return true;
+  }
+
+  function removeOverride(id, month) {
+    const budget = findBudget(id);
+    if (!budget) return false;
+
+    saveBudgets(budgets.map((item) => item.id === id ? {
+      ...item,
+      overrides: (item.overrides || []).filter((override) => override.month !== month)
+    } : item));
+    return true;
   }
 
   function upsertRecurring(data) {
@@ -63,14 +143,16 @@ const Budget = (() => {
 
   function statusFor(transactions, month = Utils.currentMonth()) {
     return budgets
-      .filter((budget) => budget.month === month)
+      .filter((budget) => appliesToMonth(budget, month))
       .map((budget) => {
+        const amount = effectiveAmount(budget, month);
+        const override = overrideForMonth(budget, month);
         const spent = Utils.sum(
           transactions.filter((item) => item.type === "expense" && item.category === budget.category && item.date.startsWith(month)),
           (item) => item.amount
         );
-        const percent = budget.amount ? Math.round((spent / budget.amount) * 100) : 0;
-        return { ...budget, spent, percent, remaining: budget.amount - spent };
+        const percent = amount ? Math.round((spent / amount) * 100) : 0;
+        return { ...budget, baseAmount: budget.amount, amount, override, spent, percent, remaining: amount - spent };
       });
   }
 
@@ -81,6 +163,11 @@ const Budget = (() => {
     upsertBudget,
     removeBudget,
     findBudget,
+    appliesToMonth,
+    overrideForMonth,
+    effectiveAmount,
+    upsertOverride,
+    removeOverride,
     upsertRecurring,
     removeRecurring,
     findRecurring,

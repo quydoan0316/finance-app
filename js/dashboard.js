@@ -51,7 +51,7 @@ const Dashboard = (() => {
       <div class="budget-row">
         <div>
           <strong>${Utils.escapeHtml(item.category)}</strong>
-          <small>${Utils.getMonthLabel(item.month)} · Đã chi ${Utils.formatMoney(item.spent)}</small>
+          <small>${Utils.getMonthLabel(Utils.currentMonth())} · Đã chi ${Utils.formatMoney(item.spent)}</small>
           <div class="budget-meter ${item.percent > 100 ? "over" : ""}" style="--progress: ${Math.min(item.percent, 100)}%">
             <span></span>
           </div>

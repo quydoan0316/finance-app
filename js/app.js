@@ -3,6 +3,7 @@ const App = (() => {
   let wallets = [];
   let receivables = [];
   let expectedIncome = [];
+  let selectedBudgetMonth = Utils.currentMonth();
 
   function sumSettlements(items = []) {
     return Utils.sum(items, (item) => item.amount);
@@ -90,6 +91,11 @@ const App = (() => {
     document.getElementById("addExpectedIncomeBtn").addEventListener("click", () => openExpectedIncomeForm());
     document.getElementById("addCategoryBtn").addEventListener("click", () => openCategoryForm());
     document.getElementById("addBudgetBtn").addEventListener("click", () => openBudgetForm());
+    document.getElementById("budgetMonthInput").value = selectedBudgetMonth;
+    document.getElementById("budgetMonthInput").addEventListener("input", (event) => {
+      selectedBudgetMonth = event.target.value || Utils.currentMonth();
+      renderBudgets();
+    });
     document.getElementById("addRecurringBtn").addEventListener("click", () => openRecurringForm());
     document.getElementById("exportBtn").addEventListener("click", exportData);
     document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importInput").click());
@@ -374,19 +380,213 @@ const App = (() => {
   }
 
   function renderBudgets() {
-    const budgets = Budget.allBudgets();
-    document.getElementById("budgetList").innerHTML = budgets.length ? budgets.map((item) => `
-      <div class="budget-row">
+    const statuses = Budget.statusFor(Transactions.all(), selectedBudgetMonth);
+    const totalBudget = Utils.sum(statuses, (item) => item.amount);
+    const totalSpent = Utils.sum(statuses, (item) => item.spent);
+    const remaining = totalBudget - totalSpent;
+    const budgetPercent = totalBudget ? Math.round((totalSpent / totalBudget) * 100) : 0;
+    const budgetProgress = Math.min(budgetPercent, 100);
+    const stateText = remaining > 0 ? "Dư ngân sách" : remaining < 0 ? "Vượt ngân sách" : "Vừa đủ";
+
+    document.getElementById("budgetMonthSummary").innerHTML = `
+      <article class="asset-total">
+        <span>Tổng ngân sách</span>
+        <strong>${Utils.formatMoney(totalBudget)}</strong>
+      </article>
+      <article class="asset-total">
+        <span>Đã chi</span>
+        <strong class="amount-expense">${Utils.formatMoney(totalSpent)}</strong>
+      </article>
+      <article class="asset-total ${remaining >= 0 ? "highlight" : ""}">
+        <span>${remaining >= 0 ? "Còn lại" : "Vượt"}</span>
+        <strong>${Utils.formatMoney(Math.abs(remaining))}</strong>
+      </article>
+      <article class="asset-total">
+        <span>Trạng thái</span>
+        <strong>${stateText}</strong>
+      </article>
+    `;
+
+    document.getElementById("budgetList").innerHTML = statuses.length ? `
+      <div class="budget-overview-progress ${budgetPercent > 100 ? "over" : ""}">
+        <div class="budget-progress-head">
+          <span>Tiến độ chi tiêu tháng</span>
+          <strong>${budgetPercent}%</strong>
+        </div>
+        <div class="budget-meter large" style="--progress: ${budgetProgress}%">
+          <span></span>
+        </div>
+        <small>${Utils.formatMoney(totalSpent)} / ${Utils.formatMoney(totalBudget)}${remaining < 0 ? ` · Vượt ${Utils.formatMoney(Math.abs(remaining))}` : ` · Còn ${Utils.formatMoney(remaining)}`}</small>
+      </div>
+      ${statuses.map((item) => `
+      <div class="budget-row budget-row-clickable" onclick="App.openBudgetDetail('${item.id}')" role="button" tabindex="0">
         <div>
           <strong>${Utils.escapeHtml(item.category)}</strong>
-          <small>${Utils.getMonthLabel(item.month)} · ${Utils.formatMoney(item.amount)}</small>
+          <small>${Utils.getMonthLabel(selectedBudgetMonth)} · Đã chi ${Utils.formatMoney(item.spent)} / ${Utils.formatMoney(item.amount)}${item.override ? " · Có chỉnh riêng" : ""}</small>
+          <div class="budget-meter ${item.percent > 100 ? "over" : ""}" style="--progress: ${Math.min(item.percent, 100)}%">
+            <span></span>
+          </div>
         </div>
         <span class="row-actions">
-          <button class="icon-btn action-edit" type="button" onclick="App.openBudgetForm('${item.id}')" aria-label="Sửa ngân sách" title="Sửa">✎</button>
-          <button class="icon-btn action-delete" type="button" onclick="App.deleteBudget('${item.id}')" aria-label="Xóa ngân sách" title="Xóa">🗑</button>
+          <strong>${item.percent}%</strong>
+          <button class="icon-btn action-edit" type="button" onclick="event.stopPropagation(); App.openBudgetForm('${item.id}')" aria-label="Sửa ngân sách" title="Sửa">✎</button>
+          <button class="icon-btn action-delete" type="button" onclick="event.stopPropagation(); App.deleteBudget('${item.id}')" aria-label="Xóa ngân sách" title="Xóa">🗑</button>
         </span>
       </div>
-    `).join("") : `<p class="empty-state">Chưa có ngân sách.</p>`;
+      `).join("")}
+    ` : `<p class="empty-state">Chưa có ngân sách áp dụng cho tháng này.</p>`;
+  }
+
+  function budgetTransactions(budget, month = selectedBudgetMonth) {
+    return Transactions.all()
+      .filter((item) => item.type === "expense" && item.category === budget.category && item.date.startsWith(month))
+      .sort(Utils.byDateDesc);
+  }
+
+  function budgetWalletRows(transactions) {
+    const grouped = transactions.reduce((acc, item) => {
+      acc[item.wallet] = (acc[item.wallet] || 0) + Number(item.amount || 0);
+      return acc;
+    }, {});
+    return Object.entries(grouped)
+      .sort((a, b) => b[1] - a[1])
+      .map(([wallet, amount]) => `
+        <tr>
+          <td>${Utils.escapeHtml(wallet)}</td>
+          <td class="align-right"><strong>${Utils.formatMoney(amount)}</strong></td>
+        </tr>
+      `).join("");
+  }
+
+  function openBudgetDetail(id) {
+    const budget = Budget.statusFor(Transactions.all(), selectedBudgetMonth).find((item) => item.id === id);
+    if (!budget) return;
+
+    const transactions = budgetTransactions(budget);
+    const remaining = budget.amount - budget.spent;
+    const progress = Math.min(budget.percent, 100);
+    const walletRows = budgetWalletRows(transactions);
+    const overrideNote = budget.override
+      ? `<p class="budget-override-note full">Tháng này đang dùng hạn mức riêng. Mức mặc định là ${Utils.formatMoney(budget.baseAmount)}${budget.override.note ? ` · ${Utils.escapeHtml(budget.override.note)}` : ""}</p>`
+      : "";
+    const transactionRows = transactions.map((item) => `
+      <tr>
+        <td>${item.date}</td>
+        <td>${Utils.escapeHtml(item.wallet)}</td>
+        <td>${Utils.escapeHtml(item.note || "Không có ghi chú")}</td>
+        <td class="align-right"><strong>${Utils.formatMoney(item.amount)}</strong></td>
+      </tr>
+    `).join("");
+
+    openModal("Chi tiết ngân sách", `
+      <div class="budget-detail-head full">
+        <div>
+          <span class="badge expense">${Utils.escapeHtml(budget.category)}</span>
+          <h3>${Utils.getMonthLabel(selectedBudgetMonth)}</h3>
+        </div>
+        <strong>${budget.percent}%</strong>
+      </div>
+      <div class="budget-detail-summary full">
+        <article>
+          <span>Hạn mức</span>
+          <strong>${Utils.formatMoney(budget.amount)}</strong>
+        </article>
+        <article>
+          <span>Đã chi</span>
+          <strong class="amount-expense">${Utils.formatMoney(budget.spent)}</strong>
+        </article>
+        <article>
+          <span>${remaining >= 0 ? "Còn lại" : "Vượt"}</span>
+          <strong>${Utils.formatMoney(Math.abs(remaining))}</strong>
+        </article>
+      </div>
+      <div class="budget-detail-progress full ${budget.percent > 100 ? "over" : ""}">
+        <div class="budget-progress-head">
+          <span>Tiến độ ngân sách</span>
+          <strong>${budget.percent}%</strong>
+        </div>
+        <div class="budget-meter large" style="--progress: ${progress}%">
+          <span></span>
+        </div>
+        <small>${Utils.formatMoney(budget.spent)} / ${Utils.formatMoney(budget.amount)}</small>
+      </div>
+      ${overrideNote}
+      <div class="form-field full">
+        <label>Theo ví</label>
+        <div class="table-wrap">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Ví</th>
+                <th class="align-right">Số tiền</th>
+              </tr>
+            </thead>
+            <tbody>${walletRows || `<tr><td colspan="2" class="empty-state">Chưa có giao dịch.</td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="form-field full">
+        <label>Giao dịch liên quan</label>
+        <div class="table-wrap">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Ví</th>
+                <th>Ghi chú</th>
+                <th class="align-right">Số tiền</th>
+              </tr>
+            </thead>
+            <tbody>${transactionRows || `<tr><td colspan="4" class="empty-state">Chưa có giao dịch.</td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" onclick="App.openBudgetOverrideForm('${budget.id}')">Chỉnh riêng tháng này</button>
+        ${budget.override ? `<button class="btn btn-secondary danger-text" type="button" onclick="App.deleteBudgetOverride('${budget.id}')">Bỏ chỉnh riêng</button>` : ""}
+        <button class="btn btn-primary" type="submit">Đóng</button>
+      </div>
+    `, () => true);
+  }
+
+  function openBudgetOverrideForm(id) {
+    const budget = Budget.findBudget(id);
+    if (!budget || !Budget.appliesToMonth(budget, selectedBudgetMonth)) return;
+
+    const override = Budget.overrideForMonth(budget, selectedBudgetMonth);
+    const amount = override ? override.amount : Budget.effectiveAmount(budget, selectedBudgetMonth);
+
+    openModal("Chỉnh riêng ngân sách tháng", `
+      <div class="form-field">
+        <label>Danh mục</label>
+        <input value="${Utils.escapeHtml(budget.category)}" disabled>
+      </div>
+      <div class="form-field">
+        <label>Tháng áp dụng</label>
+        <input value="${Utils.getMonthLabel(selectedBudgetMonth)}" disabled>
+      </div>
+      <div class="form-field">
+        <label>Hạn mức mặc định</label>
+        <input value="${Utils.formatMoney(budget.amount)}" disabled>
+      </div>
+      <div class="form-field">
+        <label>Hạn mức riêng tháng này</label>
+        <input name="amount" type="number" min="1" required value="${amount || ""}">
+      </div>
+      <div class="form-field full">
+        <label>Ghi chú</label>
+        <input name="note" value="${Utils.escapeHtml(override?.note || "")}" placeholder="Ví dụ: tháng này có tiệc, đi du lịch...">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-close-modal>Hủy</button>
+        <button class="btn btn-primary" type="submit">Lưu</button>
+      </div>
+    `, (data) => Budget.upsertOverride(id, {
+      month: selectedBudgetMonth,
+      amount: data.amount,
+      note: data.note
+    }));
+    document.querySelector("#modalForm [data-close-modal]").addEventListener("click", closeModal);
   }
 
   function renderRecurring() {
@@ -728,7 +928,12 @@ const App = (() => {
   }
 
   function openBudgetForm(id) {
-    const item = id ? Budget.findBudget(id) : { month: Utils.currentMonth() };
+    const item = id ? Budget.findBudget(id) : {
+      recurrence: "monthly",
+      startMonth: selectedBudgetMonth,
+      endMonth: "",
+      active: true
+    };
     openModal(id ? "Chỉnh sửa ngân sách" : "Thêm ngân sách", `
       <input type="hidden" name="id" value="${item.id || ""}">
       <div class="form-field">
@@ -736,19 +941,52 @@ const App = (() => {
         <select name="category" required>${categoryOptions("expense", item.category)}</select>
       </div>
       <div class="form-field">
-        <label>Tháng</label>
-        <input name="month" type="month" required value="${item.month || Utils.currentMonth()}">
+        <label>Kiểu áp dụng</label>
+        <select name="recurrence" required>
+          <option value="monthly" ${item.recurrence === "monthly" ? "selected" : ""}>Hàng tháng</option>
+          <option value="once" ${item.recurrence === "once" ? "selected" : ""}>Chỉ một tháng</option>
+          <option value="range" ${item.recurrence === "range" ? "selected" : ""}>Theo khoảng tháng</option>
+        </select>
       </div>
-      <div class="form-field full">
+      <div class="form-field">
+        <label>Tháng bắt đầu</label>
+        <input name="startMonth" type="month" required value="${item.startMonth || item.month || selectedBudgetMonth}">
+      </div>
+      <div class="form-field" id="budgetEndMonthField">
+        <label>Tháng kết thúc</label>
+        <input name="endMonth" id="budgetEndMonthInput" type="month" value="${item.endMonth || ""}">
+      </div>
+      <div class="form-field">
         <label>Hạn mức</label>
         <input name="amount" type="number" min="1" required value="${item.amount || ""}">
+      </div>
+      <div class="form-field">
+        <label>Trạng thái</label>
+        <select name="active">
+          <option value="on" ${item.active !== false ? "selected" : ""}>Đang áp dụng</option>
+          <option value="off" ${item.active === false ? "selected" : ""}>Tạm dừng</option>
+        </select>
       </div>
       <div class="form-actions">
         <button class="btn btn-secondary" type="button" data-close-modal>Hủy</button>
         <button class="btn btn-primary" type="submit">Lưu</button>
       </div>
-    `, (data) => Budget.upsertBudget(data));
+    `, (data) => Budget.upsertBudget({ ...data, active: data.active === "on" }));
     document.querySelector("#modalForm [data-close-modal]").addEventListener("click", closeModal);
+    syncBudgetEndMonthField();
+    document.querySelector("#modalForm [name='recurrence']").addEventListener("change", syncBudgetEndMonthField);
+  }
+
+  function syncBudgetEndMonthField() {
+    const recurrence = document.querySelector("#modalForm [name='recurrence']")?.value;
+    const field = document.getElementById("budgetEndMonthField");
+    const input = document.getElementById("budgetEndMonthInput");
+    if (!field || !input) return;
+
+    const isRange = recurrence === "range";
+    field.style.display = isRange ? "grid" : "none";
+    input.disabled = !isRange;
+    if (!isRange) input.value = "";
   }
 
   function openRecurringForm(id) {
@@ -830,6 +1068,14 @@ const App = (() => {
   function deleteBudget(id) {
     if (confirm("Xóa ngân sách này?")) {
       Budget.removeBudget(id);
+      renderAll();
+    }
+  }
+
+  function deleteBudgetOverride(id) {
+    if (confirm("Bỏ hạn mức riêng của tháng này?")) {
+      Budget.removeOverride(id, selectedBudgetMonth);
+      closeModal();
       renderAll();
     }
   }
@@ -933,6 +1179,9 @@ const App = (() => {
     openCategoryForm,
     deleteCategory,
     openBudgetForm,
+    openBudgetDetail,
+    openBudgetOverrideForm,
+    deleteBudgetOverride,
     deleteBudget,
     openRecurringForm,
     deleteRecurring
