@@ -143,6 +143,31 @@
   gap: 8px;
 }
 
+.asset-row-clickable {
+  cursor: pointer;
+}
+
+.asset-row-clickable:hover {
+  background: rgba(36, 107, 254, 0.06);
+}
+
+.asset-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.asset-detail-head h3 {
+  margin: 6px 0 0;
+  font-size: 1.1rem;
+}
+
+.asset-detail-head > strong {
+  font-size: 1.25rem;
+  white-space: nowrap;
+}
+
 .dashboard-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

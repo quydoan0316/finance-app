@@ -44,6 +44,15 @@ const Utils = (() => {
     return items.reduce((total, item) => total + Number(selector(item) || 0), 0);
   }
 
+  function calculateWalletInitialBalance(wallet, transactions) {
+    // Get transactions for this wallet
+    const walletTransactions = transactions.filter((tx) => tx.wallet === wallet.name);
+    const income = sum(walletTransactions.filter((tx) => tx.type === "income"), (tx) => tx.amount);
+    const expense = sum(walletTransactions.filter((tx) => tx.type === "expense"), (tx) => tx.amount);
+    // initial = current - income + expense
+    return wallet.balance - income + expense;
+  }
+
   return {
     formatMoney,
     today,
@@ -52,6 +61,7 @@ const Utils = (() => {
     escapeHtml,
     byDateDesc,
     getMonthLabel,
-    sum
+    sum,
+    calculateWalletInitialBalance
   };
 })();

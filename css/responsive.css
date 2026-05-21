@@ -65,6 +65,10 @@
   .budget-toolbar {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .list-filter {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 620px) {
@@ -74,6 +78,7 @@
   .budget-detail-summary,
   .category-grid,
   .toolbar,
+  .list-filter,
   .form-grid {
     grid-template-columns: 1fr;
   }

@@ -22,11 +22,11 @@ const Storage = (() => {
       { id: "cat_freelance", name: "Làm thêm", type: "income", icon: "💻", color: "#2563eb" }
     ],
     wallets: [
-      { id: "wallet_vietinbank", name: "VietinBank", balance: 0 },
-      { id: "wallet_momo", name: "MoMo", balance: 0 },
-      { id: "wallet_cash", name: "Tiền mặt", balance: 0 },
-      { id: "wallet_vietcombank", name: "VietcomBank", balance: 0 },
-      { id: "wallet_vpbank", name: "VPBank", balance: 0 }
+      { id: "wallet_vietinbank", name: "VietinBank", balance: 0, initialBalance: 0, createdAt: "2026-01-01" },
+      { id: "wallet_momo", name: "MoMo", balance: 0, initialBalance: 0, createdAt: "2026-01-01" },
+      { id: "wallet_cash", name: "Tiền mặt", balance: 0, initialBalance: 0, createdAt: "2026-01-01" },
+      { id: "wallet_vietcombank", name: "VietcomBank", balance: 0, initialBalance: 0, createdAt: "2026-01-01" },
+      { id: "wallet_vpbank", name: "VPBank", balance: 0, initialBalance: 0, createdAt: "2026-01-01" }
     ],
     receivables: [],
     expectedIncome: [],
@@ -106,10 +106,39 @@ const Storage = (() => {
     };
   }
 
-  function decorateWallet(wallet) {
+  function decorateWallet(wallet, transactions = []) {
+    const name = String(wallet?.name || "").trim();
+    const balance = Number(wallet.balance) || 0;
+    // initialBalance = số dư lúc tạo ví (trước giao dịch). Ưu tiên giá trị trong file import.
+    const hasInitial = wallet.initialBalance !== undefined && wallet.initialBalance !== null && wallet.initialBalance !== "";
+    const walletDates = transactions
+      .filter((tx) => tx.wallet === name)
+      .map((tx) => tx.date)
+      .filter(Boolean)
+      .sort();
     return {
-      ...wallet,
-      balance: Number(wallet.balance) || 0
+      id: wallet.id || Utils.createId("wallet"),
+      name,
+      balance,
+      initialBalance: hasInitial
+        ? Number(wallet.initialBalance) || 0
+        : Utils.calculateWalletInitialBalance({ name, balance }, transactions),
+      createdAt: wallet.createdAt || walletDates[0] || Utils.today()
+    };
+  }
+
+  function normalizeTransaction(item) {
+    return {
+      id: item.id || Utils.createId("tx"),
+      type: item.type === "income" ? "income" : "expense",
+      category: translate(item.category) || String(item.category || "").trim(),
+      amount: Number(item.amount) || 0,
+      wallet: translate(item.wallet) || String(item.wallet || "Tiền mặt").trim(),
+      note: translate(item.note) || String(item.note || ""),
+      date: item.date || Utils.today(),
+      sourceType: item.sourceType || "",
+      sourceId: item.sourceId || "",
+      sourceEventId: item.sourceEventId || ""
     };
   }
 
@@ -120,7 +149,7 @@ const Storage = (() => {
     const wallets = read("wallets", []);
 
     write("categories", categories.map(decorateCategory));
-    write("wallets", wallets.map(decorateWallet));
+    write("wallets", wallets.map((wallet) => decorateWallet(wallet, transactions)));
     write("transactions", transactions.map((item) => ({
       ...item,
       category: translate(item.category),
@@ -130,5 +159,5 @@ const Storage = (() => {
     write("budgets", budgets.map((item) => ({ ...item, category: translate(item.category) })));
   }
 
-  return { keys, defaults, read, write, seed };
+  return { keys, defaults, read, write, seed, decorateCategory, decorateWallet, normalizeTransaction };
 })();

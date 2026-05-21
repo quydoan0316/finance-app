@@ -73,27 +73,87 @@ const FinanceCharts = (() => {
 
   function renderBalance(transactions) {
     destroy("balance");
-    let balance = 0;
+
+    const wallets = Storage.read("wallets", []);
+    const initialBalance = wallets.reduce((sum, w) => sum + (Number(w.initialBalance) || 0), 0);
     const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const data = sorted.map((item) => {
-      balance += item.type === "income" ? Number(item.amount) : -Number(item.amount);
-      return balance;
+
+    const balanceChartScales = {
+      ...chartOptions().scales,
+      y: { ...chartOptions().scales.y, position: "left" },
+      y1: { ...chartOptions().scales.y, position: "right", grid: { drawOnChartArea: false } }
+    };
+
+    if (sorted.length === 0) {
+      charts.balance = new Chart(document.getElementById("balanceChart"), {
+        type: "line",
+        data: {
+          labels: [Utils.today()],
+          datasets: [
+            {
+              label: "Số dư",
+              data: [initialBalance],
+              borderColor: "#246bfe",
+              backgroundColor: "rgba(36, 107, 254, 0.12)",
+              fill: true,
+              tension: 0.32,
+              yAxisID: "y"
+            },
+            {
+              label: "Chi tiêu lũy kế",
+              data: [0],
+              borderColor: "#e05a47",
+              backgroundColor: "rgba(224, 90, 71, 0.12)",
+              fill: true,
+              tension: 0.32,
+              yAxisID: "y1"
+            }
+          ]
+        },
+        options: { ...chartOptions(), scales: balanceChartScales }
+      });
+      return;
+    }
+
+    let balance = initialBalance;
+    let spending = 0;
+    const balanceData = [];
+    const spendingData = [];
+
+    sorted.forEach((item) => {
+      const amount = Number(item.amount);
+      balance += item.type === "income" ? amount : -amount;
+      if (item.type === "expense") spending += amount;
+      balanceData.push(balance);
+      spendingData.push(spending);
     });
 
     charts.balance = new Chart(document.getElementById("balanceChart"), {
       type: "line",
       data: {
         labels: sorted.map((item) => item.date),
-        datasets: [{
-          label: "Số dư",
-          data,
-          borderColor: "#246bfe",
-          backgroundColor: "rgba(36, 107, 254, 0.12)",
-          fill: true,
-          tension: 0.32
-        }]
+        datasets: [
+          {
+            label: "Số dư",
+            data: balanceData,
+            borderColor: "#246bfe",
+            backgroundColor: "rgba(36, 107, 254, 0.12)",
+            fill: true,
+            tension: 0.32,
+            yAxisID: "y"
+          },
+          {
+            label: "Chi tiêu lũy kế",
+            data: spendingData,
+            borderColor: "#e05a47",
+            backgroundColor: "rgba(224, 90, 71, 0.12)",
+            fill: true,
+            tension: 0.32,
+            yAxisID: "y1"
+          }
+        ]
       },
-      options: chartOptions()
+      options: { ...chartOptions(), scales: balanceChartScales }
     });
   }
 

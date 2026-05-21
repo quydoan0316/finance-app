@@ -52,8 +52,9 @@ const Transactions = (() => {
       const monthMatch = criteria.month === "all" || item.date.startsWith(criteria.month);
       const typeMatch = criteria.type === "all" || item.type === criteria.type;
       const categoryMatch = criteria.category === "all" || item.category === criteria.category;
+      const walletMatch = !criteria.wallet || criteria.wallet === "all" || item.wallet === criteria.wallet;
       const text = `${item.category} ${item.wallet} ${item.note}`.toLowerCase();
-      return monthMatch && typeMatch && categoryMatch && text.includes(search);
+      return monthMatch && typeMatch && categoryMatch && walletMatch && text.includes(search);
     }).sort(Utils.byDateDesc);
   }
 

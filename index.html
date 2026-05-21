@@ -58,6 +58,15 @@
             </div>
           </div>
           <div class="asset-summary" id="assetSummary"></div>
+          <div class="list-filter">
+            <input id="assetSearchInput" type="search" placeholder="Tìm nguồn tài sản...">
+            <select id="assetTypeFilter">
+              <option value="all">Tất cả nhãn</option>
+              <option value="wallet">Ví</option>
+              <option value="receivable">Phải thu</option>
+              <option value="expected">Dự kiến</option>
+            </select>
+          </div>
           <div class="asset-sources" id="assetSources"></div>
         </section>
       </section>
@@ -132,6 +141,9 @@
           <select id="categoryFilter">
             <option value="all">Tất cả danh mục</option>
           </select>
+          <select id="walletFilter">
+            <option value="all">Tất cả ví</option>
+          </select>
         </div>
         <section class="panel">
           <div class="panel-header">
@@ -168,6 +180,14 @@
             </div>
             <button class="btn btn-primary" id="addCategoryBtn" type="button">Thêm danh mục</button>
           </div>
+          <div class="list-filter">
+            <input id="categorySearchInput" type="search" placeholder="Tìm danh mục...">
+            <select id="categoryTypeListFilter">
+              <option value="all">Tất cả loại</option>
+              <option value="income">Thu nhập</option>
+              <option value="expense">Chi tiêu</option>
+            </select>
+          </div>
           <div class="category-grid" id="categoryGrid"></div>
         </section>
       </section>
@@ -185,6 +205,15 @@
             <label for="budgetMonthInput">Tháng xem ngân sách</label>
             <input id="budgetMonthInput" type="month">
           </div>
+          <div class="list-filter">
+            <input id="budgetSearchInput" type="search" placeholder="Tìm ngân sách theo danh mục...">
+            <select id="budgetStateFilter">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="available">Còn ngân sách</option>
+              <option value="exact">Vừa đủ</option>
+              <option value="over">Vượt ngân sách</option>
+            </select>
+          </div>
           <div class="budget-summary-grid" id="budgetMonthSummary"></div>
           <div class="budget-list" id="budgetList"></div>
         </section>
@@ -198,6 +227,14 @@
               <p>Netflix, tiền nhà, internet và các khoản lặp lại</p>
             </div>
             <button class="btn btn-primary" id="addRecurringBtn" type="button">Thêm khoản định kỳ</button>
+          </div>
+          <div class="list-filter">
+            <input id="recurringSearchInput" type="search" placeholder="Tìm khoản định kỳ...">
+            <select id="recurringCycleFilter">
+              <option value="all">Tất cả chu kỳ</option>
+              <option value="monthly">Hàng tháng</option>
+              <option value="yearly">Hàng năm</option>
+            </select>
           </div>
           <div class="compact-list" id="recurringList"></div>
         </section>
