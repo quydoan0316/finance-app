@@ -117,6 +117,15 @@ const App = (() => {
   }
 
   function bindEvents() {
+    document.getElementById("navToggleBtn")?.addEventListener("click", toggleNav);
+    document.getElementById("navBackdrop")?.addEventListener("click", closeNav);
+    window.addEventListener("resize", () => {
+      if (!isMobileNav()) closeNav();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeNav();
+    });
+
     document.querySelectorAll(".nav-item").forEach((button) => {
       button.addEventListener("click", () => switchView(button.dataset.view));
     });
@@ -178,10 +187,35 @@ const App = (() => {
     });
   }
 
+  function isMobileNav() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function setNavOpen(open) {
+    document.body.classList.toggle("nav-open", open);
+    const toggle = document.getElementById("navToggleBtn");
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Đóng menu" : "Mở menu");
+    }
+    const backdrop = document.getElementById("navBackdrop");
+    if (backdrop) backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+    document.body.style.overflow = open && isMobileNav() ? "hidden" : "";
+  }
+
+  function closeNav() {
+    setNavOpen(false);
+  }
+
+  function toggleNav() {
+    setNavOpen(!document.body.classList.contains("nav-open"));
+  }
+
   function switchView(view) {
     document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
     document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
     document.getElementById(`${view}View`).classList.add("active");
+    if (isMobileNav()) closeNav();
   }
 
   function options(items, selected = "") {
@@ -1420,6 +1454,7 @@ const App = (() => {
   }
 
   function openModal(title, html, onSubmit) {
+    closeNav();
     document.getElementById("modalTitle").textContent = title;
     const form = document.getElementById("modalForm");
     form.innerHTML = html;

@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>FinanceFlow - Quản lý chi tiêu</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -11,7 +11,8 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
+    <div class="nav-backdrop" id="navBackdrop" aria-hidden="true"></div>
+    <aside class="sidebar" id="appSidebar">
       <div class="brand">
         <span class="brand-mark">F</span>
         <div>
@@ -33,9 +34,14 @@
 
     <main class="main-content">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Hôm nay</p>
-          <h1>Quản lý chi tiêu cá nhân</h1>
+        <div class="topbar-head">
+          <button class="nav-toggle" id="navToggleBtn" type="button" aria-controls="appSidebar" aria-expanded="false" aria-label="Mở menu">
+            <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          </button>
+          <div>
+            <p class="eyebrow">Hôm nay</p>
+            <h1>Quản lý chi tiêu cá nhân</h1>
+          </div>
         </div>
         <div class="topbar-actions">
           <button class="btn btn-secondary" id="importBtn" type="button">Nhập JSON</button>

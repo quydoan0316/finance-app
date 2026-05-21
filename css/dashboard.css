@@ -3,6 +3,8 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .summary-card {
@@ -248,8 +250,8 @@
   background: transparent;
 }
 
-.asset-table {
-  min-width: 760px;
+.table-wrap .asset-table {
+  min-width: 560px;
 }
 
 .asset-label {
@@ -384,8 +386,10 @@
 
 .reconcile-summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
   gap: 16px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .reconcile-stat-card {
@@ -513,6 +517,22 @@
 
 .chart-panel {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.chart-panel .panel-header,
+.split-layout,
+.dashboard-layout,
+.compact-list,
+.budget-list,
+.asset-sources,
+#reconcileSummary,
+#reconcileLedger,
+#reconcileReceivables,
+#reconcileBreakdown {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chart-panel canvas {
@@ -546,6 +566,21 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.list-row > div:first-child,
+.category-row > div:first-child,
+.budget-row > div:first-child {
+  min-width: 0;
+}
+
+.list-row .row-actions,
+.category-row .row-actions,
+.budget-row .row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 8px;
 }
 
 .list-row strong,
@@ -632,15 +667,16 @@
 }
 
 .budget-meta {
-  min-width: 170px;
+  min-width: 0;
   text-align: right;
 }
 
 .budget-toolbar {
   display: grid;
-  grid-template-columns: minmax(160px, 220px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   margin-bottom: 14px;
+  max-width: 100%;
 }
 
 .budget-toolbar label {
@@ -785,6 +821,6 @@
   color: var(--expense);
 }
 
-.mini-table {
-  min-width: 520px;
+.table-wrap .mini-table {
+  min-width: 400px;
 }
