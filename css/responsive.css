@@ -306,6 +306,27 @@
     margin-right: 0;
     border-radius: 8px;
   }
+
+  .table-wrap table {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .table-wrap .asset-table {
+    min-width: 560px;
+  }
+
+  .table-wrap .mini-table {
+    min-width: 400px;
+  }
+
+  #reconcileReceivables .table-wrap table {
+    min-width: 640px;
+  }
+
+  #reconcileLedger .table-wrap table {
+    min-width: 560px;
+  }
 }
 
 /* ── Narrow phone ── */
@@ -473,26 +494,6 @@
 
   .reconcile-stat-card strong {
     font-size: 1.15rem;
-  }
-
-  .table-wrap table {
-    min-width: 480px;
-  }
-
-  .table-wrap .asset-table {
-    min-width: 520px;
-  }
-
-  .table-wrap .mini-table {
-    min-width: 400px;
-  }
-
-  #reconcileReceivables .table-wrap table {
-    min-width: 640px;
-  }
-
-  #reconcileLedger .table-wrap table {
-    min-width: 560px;
   }
 
   th,

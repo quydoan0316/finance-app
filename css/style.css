@@ -515,8 +515,17 @@ table {
 
 .table-wrap table {
   margin-bottom: 2px;
-  width: max-content;
-  min-width: min(100%, 520px);
+  width: 100%;
+  table-layout: auto;
+}
+
+.table-wrap td,
+.table-wrap th {
+  word-break: break-word;
+}
+
+.table-wrap .align-right {
+  white-space: nowrap;
 }
 
 th,

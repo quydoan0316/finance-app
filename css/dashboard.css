@@ -250,10 +250,6 @@
   background: transparent;
 }
 
-.table-wrap .asset-table {
-  min-width: 560px;
-}
-
 .asset-label {
   display: inline-flex;
   align-items: center;
@@ -821,6 +817,3 @@
   color: var(--expense);
 }
 
-.table-wrap .mini-table {
-  min-width: 400px;
-}
