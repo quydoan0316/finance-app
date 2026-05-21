@@ -1,3 +1,23 @@
+/* ── Large tablet / small laptop ── */
+@media (max-width: 1280px) {
+  .summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .asset-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .budget-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(120px, 1fr));
+  }
+}
+
+/* ── Tablet landscape ── */
 @media (max-width: 1100px) {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -11,11 +31,76 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .reconcile-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reconcile-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-stats-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .chart-panel canvas {
+    max-height: 220px;
+  }
 }
 
+/* ── Tablet portrait ── */
+@media (max-width: 900px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panel-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .panel-header > div:first-child {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .panel-header .row-actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .asset-panel .panel-header .row-actions .btn {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 140px;
+  }
+
+  .asset-detail-head,
+  .budget-detail-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .asset-detail-head > strong,
+  .budget-detail-head > strong {
+    white-space: normal;
+    text-align: left;
+  }
+
+  .budget-progress-head strong {
+    white-space: normal;
+  }
+}
+
+/* ── Mobile layout: sidebar → top nav ── */
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -24,68 +109,135 @@
   .sidebar {
     position: static;
     height: auto;
-    padding: 16px;
+    padding: 14px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    gap: 12px;
+  }
+
+  .brand {
+    flex-shrink: 0;
   }
 
   .nav-list {
-    grid-template-columns: repeat(6, minmax(110px, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    min-width: max(96px, 24vw);
+    scroll-snap-align: start;
+    text-align: center;
+    white-space: nowrap;
+    padding: 10px 12px;
+    min-height: 44px;
   }
 
   .theme-toggle {
     margin-top: 0;
+    width: 100%;
+    min-height: 44px;
+    text-align: center;
   }
 
   .main-content {
-    padding: 18px;
+    padding: 16px;
+    min-width: 0;
   }
 
   .topbar,
   .split-layout,
   .dashboard-layout {
-    grid-template-columns: 1fr;
     display: grid;
+    grid-template-columns: 1fr;
   }
 
   .topbar {
     align-items: stretch;
+    gap: 14px;
+    margin-bottom: 18px;
   }
 
   .topbar-actions {
     justify-content: stretch;
     flex-wrap: wrap;
+    width: 100%;
   }
 
   .topbar-actions .btn {
-    flex: 1;
+    flex: 1 1 calc(50% - 5px);
+    min-width: 120px;
   }
 
-  .budget-toolbar {
+  .topbar-actions .btn-primary {
+    flex: 1 1 100%;
+  }
+
+  .budget-toolbar,
+  .reconcile-toolbar {
     grid-template-columns: minmax(0, 1fr);
+    max-width: 100%;
   }
 
   .list-filter {
     grid-template-columns: 1fr;
   }
+
+  .reconcile-summary-group {
+    padding: 16px;
+  }
+
+  .reconcile-stat-card {
+    min-height: 84px;
+    padding: 14px 16px;
+  }
+
+  .btn,
+  .icon-btn,
+  .nav-item {
+    min-height: 44px;
+  }
 }
 
+/* ── Narrow phone ── */
 @media (max-width: 620px) {
+  .main-content {
+    padding: 12px;
+  }
+
   .summary-grid,
   .asset-summary,
   .budget-summary-grid,
+  .reconcile-summary-grid,
   .budget-detail-summary,
   .category-grid,
   .toolbar,
   .list-filter,
-  .form-grid {
+  .form-grid,
+  .transaction-stats-cards {
     grid-template-columns: 1fr;
   }
 
+  .asset-selection-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .selection-chips {
+    gap: 4px;
+  }
+
   .panel,
-  .summary-card {
-    padding: 16px;
+  .summary-card,
+  .reconcile-summary-group {
+    padding: 14px;
   }
 
   .panel-header {
@@ -94,20 +246,36 @@
   }
 
   .panel-header .btn,
-  .form-actions .btn {
+  .panel-header .row-actions,
+  .panel-header .row-actions .btn,
+  .form-actions .btn,
+  .topbar-actions .btn {
     width: 100%;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .asset-panel .panel-header .row-actions .btn {
+    flex: 1 1 100%;
+  }
+
+  .topbar-actions {
+    flex-direction: column;
   }
 
   .list-row,
   .category-row,
   .budget-row {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .row-actions,
   .asset-row-actions {
     justify-content: flex-start;
     flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
   }
 
   .budget-row .row-actions {
@@ -116,6 +284,7 @@
 
   .budget-row .row-actions > strong {
     margin-right: auto;
+    width: 100%;
   }
 
   .budget-progress-head {
@@ -128,14 +297,137 @@
     flex-direction: column-reverse;
   }
 
+  .modal.open {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 10px;
+  }
+
   .modal-content {
-    width: min(100vw - 20px, 620px);
-    max-height: calc(100dvh - 20px);
+    width: 100%;
+    max-width: none;
+    max-height: min(92dvh, calc(100dvh - 20px));
+    margin: 0;
+    border-radius: 12px 12px 0 0;
     padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 
   .budget-meta {
     min-width: 0;
     text-align: left;
+    width: 100%;
+  }
+
+  .chart-panel canvas {
+    max-height: 200px;
+  }
+
+  .view.reconcile-view.active {
+    gap: 14px;
+  }
+
+  .reconcile-block {
+    padding: 14px;
+  }
+
+  .reconcile-stat-card strong {
+    font-size: 1.15rem;
+  }
+
+  table {
+    min-width: 640px;
+  }
+
+  .asset-table {
+    min-width: 600px;
+  }
+
+  .mini-table {
+    min-width: 480px;
+  }
+
+  #reconcileReceivables table {
+    min-width: 880px;
+  }
+
+  #reconcileLedger table {
+    min-width: 680px;
+  }
+
+  th,
+  td {
+    padding: 10px 8px;
+    font-size: 0.9rem;
+  }
+
+  .category-main {
+    flex-wrap: wrap;
+  }
+
+  .category-row .row-actions {
+    width: 100%;
+  }
+}
+
+/* ── Very small screens ── */
+@media (max-width: 400px) {
+  .sidebar {
+    padding: 12px;
+  }
+
+  .nav-item {
+    min-width: 88px;
+    font-size: 0.88rem;
+    padding: 8px 10px;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .topbar h1 {
+    font-size: 1.35rem;
+  }
+
+  .summary-card strong {
+    font-size: 1.2rem;
+  }
+
+  .btn,
+  .icon-btn {
+    padding: 0 12px;
+    font-size: 0.92rem;
+  }
+
+  .reconcile-group-title {
+    font-size: 0.78rem;
+  }
+}
+
+/* ── Short viewport (landscape phone) ── */
+@media (max-height: 520px) and (max-width: 900px) {
+  .modal-content {
+    max-height: calc(100dvh - 12px);
+    border-radius: 8px;
+  }
+
+  .chart-panel canvas {
+    max-height: 140px;
+  }
+}
+
+/* ── Prefer reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .view {
+    animation: none;
+  }
+
+  .btn:hover,
+  .icon-btn:hover,
+  .budget-row-clickable:hover {
+    transform: none;
   }
 }

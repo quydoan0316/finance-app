@@ -32,17 +32,32 @@ const Dashboard = (() => {
 
   function renderRecent(transactions) {
     const recent = [...transactions].sort(Utils.byDateDesc).slice(0, 5);
-    document.getElementById("recentTransactions").innerHTML = recent.length ? recent.map((item) => `
-      <div class="list-row">
-        <div>
-          <strong>${Utils.escapeHtml(item.category)} - ${Utils.escapeHtml(item.wallet)}</strong>
-          <small>${Utils.escapeHtml(item.note || "Không có ghi chú")} · ${item.date}</small>
+    document.getElementById("recentTransactions").innerHTML = recent.length ? recent.map((item) => {
+      if (item.type === "transfer") {
+        const arrow = item.transferRole === "in" ? "←" : "→";
+        const peer = item.transferTo || "ví khác";
+        return `
+          <div class="list-row">
+            <div>
+              <strong>${Utils.escapeHtml(item.wallet)} ${arrow} ${Utils.escapeHtml(peer)}</strong>
+              <small>${Utils.escapeHtml(item.note || "Chuyển tiền giữa ví")} · ${item.date}</small>
+            </div>
+            <span class="amount-transfer">${Utils.formatMoney(item.amount)}</span>
+          </div>
+        `;
+      }
+      return `
+        <div class="list-row">
+          <div>
+            <strong>${Utils.escapeHtml(item.category)} - ${Utils.escapeHtml(item.wallet)}</strong>
+            <small>${Utils.escapeHtml(item.note || "Không có ghi chú")} · ${item.date}</small>
+          </div>
+          <span class="${item.type === "income" ? "amount-income" : "amount-expense"}">
+            ${item.type === "income" ? "+" : "-"}${Utils.formatMoney(item.amount)}
+          </span>
         </div>
-        <span class="${item.type === "income" ? "amount-income" : "amount-expense"}">
-          ${item.type === "income" ? "+" : "-"}${Utils.formatMoney(item.amount)}
-        </span>
-      </div>
-    `).join("") : `<p class="empty-state">Chưa có giao dịch.</p>`;
+      `;
+    }).join("") : `<p class="empty-state">Chưa có giao dịch.</p>`;
   }
 
   function renderBudgetStatus(transactions, targetId = "budgetStatus") {

@@ -121,6 +121,7 @@ const FinanceCharts = (() => {
     const spendingData = [];
 
     sorted.forEach((item) => {
+      if (!Transactions.isCashflow(item)) return;
       const amount = Number(item.amount);
       balance += item.type === "income" ? amount : -amount;
       if (item.type === "expense") spending += amount;

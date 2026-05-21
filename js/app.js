@@ -4,30 +4,20 @@ const App = (() => {
   let receivables = [];
   let expectedIncome = [];
   let selectedBudgetMonth = Utils.currentMonth();
+  let selectedReconcileMonth = Utils.currentMonth();
+  const selectedAssetKeys = new Set();
 
   function sumSettlements(items = []) {
     return Utils.sum(items, (item) => item.amount);
   }
 
+  function sumAdjustments(items = []) {
+    return Utils.sum(items, (item) => item.amount);
+  }
+
   function normalizeSourceEntry(entry, prefix) {
-    const settlements = Array.isArray(entry.settlements) ? entry.settlements.map((item) => ({
-      id: item.id || Utils.createId(`${prefix}_settlement`),
-      amount: Number(item.amount) || 0,
-      wallet: item.wallet || "Tiền mặt",
-      date: item.date || Utils.today(),
-      note: item.note || "",
-      category: item.category || "",
-      transactionId: item.transactionId || ""
-    })) : [];
-    const remaining = Number(entry.amount) || 0;
-    const collected = sumSettlements(settlements);
-    const originalAmount = Number(entry.originalAmount);
-    return {
-      ...entry,
-      amount: remaining,
-      originalAmount: Number.isFinite(originalAmount) && originalAmount > 0 ? originalAmount : remaining + collected,
-      settlements
-    };
+    const dateField = prefix === "recv" ? "dueDate" : "expectedDate";
+    return Backup.normalizeSourceEntry(entry, prefix, dateField);
   }
 
   function persistWallets() {
@@ -42,54 +32,56 @@ const App = (() => {
     Storage.write("expectedIncome", expectedIncome);
   }
 
-  function normalizeImportArray(value) {
-    return Array.isArray(value) ? value : [];
-  }
-
   function normalizeCategories(list) {
-    return normalizeImportArray(list).map((item) => Storage.decorateCategory(item));
-  }
-
-  function normalizeTransactionsList(list) {
-    return normalizeImportArray(list).map((item) => Storage.normalizeTransaction(item));
+    return (Array.isArray(list) ? list : []).map((item) => Storage.decorateCategory(item));
   }
 
   function normalizeWallets(list, transactions) {
-    return normalizeImportArray(list)
+    return (Array.isArray(list) ? list : [])
       .map((wallet) => Storage.decorateWallet(wallet, transactions))
       .filter((wallet) => wallet.name);
   }
 
-  function applyImportedData(imported) {
-    // Chuẩn hóa giao dịch trong RAM trước (chưa ghi) — chỉ để suy ra initialBalance
-    // khi file backup cũ thiếu trường đó. File export đúng chuẩn đã có initialBalance sẵn.
-    const transactions = normalizeTransactionsList(imported.transactions);
+  function applyImportedData(data) {
+    if (data.transferIssues > 0) {
+      const proceed = confirm(
+        `File có ${data.transferIssues} nhóm chuyển khoản không đủ 2 dòng (xuất/nhập). ` +
+        "Số dư ví có thể lệch. Bạn vẫn muốn import?"
+      );
+      if (!proceed) return false;
+    }
 
-    categories = normalizeCategories(imported.categories);
-    wallets = normalizeWallets(imported.wallets, transactions);
-    receivables = normalizeImportArray(imported.receivables).map((item) => normalizeSourceEntry(item, "recv"));
-    expectedIncome = normalizeImportArray(imported.expectedIncome).map((item) => normalizeSourceEntry(item, "exp"));
+    categories = data.categories;
+    wallets = data.wallets;
+    receivables = data.receivables;
+    expectedIncome = data.expectedIncome;
 
     Storage.write("categories", categories);
-    // Ví (và initialBalance) trước — giao dịch phát sinh sau khi đã có ví
+    Storage.ensureAssetCategories();
+    Storage.ensureTransferCategory();
+    categories = normalizeCategories(Storage.read("categories", []));
+
     Storage.write("wallets", wallets);
     Storage.write("receivables", receivables);
     Storage.write("expectedIncome", expectedIncome);
-    Storage.write("transactions", transactions);
-    Storage.write("budgets", normalizeImportArray(imported.budgets));
-    Storage.write("recurring", normalizeImportArray(imported.recurring));
+    Storage.write("transactions", data.transactions);
+    Storage.write("budgets", data.budgets);
+    Storage.write("recurring", data.recurring);
+    Storage.write("categories", categories);
 
     Transactions.load();
     Budget.load();
     persistWallets();
     persistReceivables();
     persistExpectedIncome();
+    return true;
   }
 
   function boot() {
     Storage.seed();
     Transactions.load();
     Budget.load();
+    Storage.ensureTransferCategory();
     categories = normalizeCategories(Storage.read("categories", []));
     wallets = normalizeWallets(Storage.read("wallets", []), Transactions.all());
     persistWallets();
@@ -109,8 +101,13 @@ const App = (() => {
     renderAssets();
     renderCategories();
     renderBudgets();
+    renderReconcile();
     renderRecurring();
     Dashboard.render(Transactions.all());
+  }
+
+  function renderReconcile() {
+    Reconcile.render(selectedReconcileMonth);
   }
 
   function applyTheme() {
@@ -132,6 +129,7 @@ const App = (() => {
     });
 
     document.getElementById("addTransactionBtn").addEventListener("click", () => openTransactionForm());
+    document.getElementById("transferWalletBtn").addEventListener("click", () => openTransferForm());
     document.getElementById("addWalletBtn").addEventListener("click", () => openWalletForm());
     document.getElementById("addReceivableBtn").addEventListener("click", () => openReceivableForm());
     document.getElementById("addExpectedIncomeBtn").addEventListener("click", () => openExpectedIncomeForm());
@@ -142,13 +140,18 @@ const App = (() => {
       selectedBudgetMonth = event.target.value || Utils.currentMonth();
       renderBudgets();
     });
+    document.getElementById("reconcileMonthInput").value = selectedReconcileMonth;
+    document.getElementById("reconcileMonthInput").addEventListener("input", (event) => {
+      selectedReconcileMonth = event.target.value || Utils.currentMonth();
+      renderReconcile();
+    });
     document.getElementById("addRecurringBtn").addEventListener("click", () => openRecurringForm());
     document.getElementById("exportBtn").addEventListener("click", exportData);
     document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importInput").click());
     document.getElementById("importInput").addEventListener("change", importData);
     document.querySelectorAll("[data-close-modal]").forEach((item) => item.addEventListener("click", closeModal));
 
-    ["searchInput", "monthFilter", "typeFilter", "categoryFilter", "walletFilter"].forEach((id) => {
+    ["searchInput", "dayFilter", "monthFilter", "typeFilter", "categoryFilter", "walletFilter"].forEach((id) => {
       document.getElementById(id).addEventListener("input", renderTransactions);
     });
 
@@ -200,6 +203,14 @@ const App = (() => {
     return categoryOptions("income", selected);
   }
 
+  function assetCategory(flow) {
+    const names = Storage.assetCategoryNames;
+    if (flow === "lend") return names.lend;
+    if (flow === "collectReceivable") return names.collectReceivable;
+    if (flow === "collectExpected") return names.collectExpected;
+    return "";
+  }
+
   function categoryMeta(name) {
     return categories.find((cat) => cat.name === name) || {
       name,
@@ -248,14 +259,128 @@ const App = (() => {
   function applyTransactionImpact(transaction, direction = 1) {
     if (!transaction?.wallet) return true;
     const amount = Number(transaction.amount) || 0;
+    if (transaction.type === "transfer") {
+      if (transaction.transferRole === "out") {
+        return adjustWalletBalance(transaction.wallet, -amount * direction);
+      }
+      if (transaction.transferRole === "in") {
+        return adjustWalletBalance(transaction.wallet, amount * direction);
+      }
+      return true;
+    }
     const delta = transaction.type === "income" ? amount * direction : -amount * direction;
     return adjustWalletBalance(transaction.wallet, delta);
+  }
+
+  function transferCategory() {
+    return Storage.transferCategoryName();
+  }
+
+  function findTransferLegs(groupId) {
+    return Transactions.all().filter((item) => item.transferGroupId === groupId);
+  }
+
+  function saveTransfer(data) {
+    const fromWallet = data.fromWallet;
+    const toWallet = data.toWallet;
+    const amount = Number(data.amount) || 0;
+
+    if (!fromWallet || !toWallet) {
+      alert("Chọn ví gửi và ví nhận.");
+      return false;
+    }
+    if (fromWallet === toWallet) {
+      alert("Ví gửi và ví nhận phải khác nhau.");
+      return false;
+    }
+    if (amount <= 0) {
+      alert("Số tiền chuyển phải lớn hơn 0.");
+      return false;
+    }
+
+    const sender = findWallet(fromWallet);
+    if (sender && Number(sender.balance) < amount) {
+      const ok = confirm(
+        `Ví "${fromWallet}" hiện còn ${Utils.formatMoney(sender.balance)}, nhỏ hơn số muốn chuyển. Bạn vẫn tiếp tục?`
+      );
+      if (!ok) return false;
+    }
+
+    const groupId = data.transferGroupId || Utils.createId("xfer");
+    const category = transferCategory();
+    const note = data.note || `${fromWallet} → ${toWallet}`;
+    const date = data.date || Utils.today();
+    const previous = data.transferGroupId ? findTransferLegs(groupId) : [];
+
+    previous.forEach((leg) => applyTransactionImpact(leg, -1));
+
+    const restorePrevious = () => {
+      previous.forEach((leg) => applyTransactionImpact(leg, 1));
+    };
+
+    const outTx = {
+      id: previous.find((item) => item.transferRole === "out")?.id,
+      type: "transfer",
+      category,
+      amount,
+      wallet: fromWallet,
+      transferTo: toWallet,
+      transferGroupId: groupId,
+      transferRole: "out",
+      date,
+      note
+    };
+    const inTx = {
+      id: previous.find((item) => item.transferRole === "in")?.id,
+      type: "transfer",
+      category,
+      amount,
+      wallet: toWallet,
+      transferTo: fromWallet,
+      transferGroupId: groupId,
+      transferRole: "in",
+      date,
+      note
+    };
+
+    const savedOut = Transactions.upsert(outTx);
+    if (!applyTransactionImpact(savedOut, 1)) {
+      restorePrevious();
+      if (!previous.length) Transactions.remove(savedOut.id);
+      return false;
+    }
+
+    const savedIn = Transactions.upsert(inTx);
+    if (!applyTransactionImpact(savedIn, 1)) {
+      applyTransactionImpact(savedOut, -1);
+      if (!previous.length) {
+        Transactions.remove(savedOut.id);
+        Transactions.remove(savedIn.id);
+      } else {
+        restorePrevious();
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  function removeTransferGroup(groupId) {
+    const legs = findTransferLegs(groupId);
+    if (!legs.length) return true;
+    legs.forEach((leg) => applyTransactionImpact(leg, -1));
+    legs.forEach((leg) => Transactions.remove(leg.id));
+    return true;
   }
 
   function saveTransaction(data) {
     const previous = data.id ? Transactions.find(data.id) : null;
     if (previous?.sourceType) {
-      alert("Giao dịch này được tạo từ khoản phải thu hoặc dự kiến. Hãy cập nhật từ mục Tài sản để giữ đồng bộ.");
+      alert("Giao dịch này được tạo từ mục Tài sản (thu nợ hoặc cho vay thêm). Hãy cập nhật từ mục Tài sản để giữ đồng bộ.");
+      return false;
+    }
+    if (previous?.type === "transfer") {
+      alert("Đây là giao dịch chuyển khoản. Hãy sửa từ nút Chuyển tiền trong mục Tài sản.");
       return false;
     }
 
@@ -277,12 +402,38 @@ const App = (() => {
     const item = Transactions.find(id);
     if (!item) return true;
     if (item.sourceType) {
-      alert("Giao dịch này được tạo từ khoản phải thu hoặc dự kiến. Hãy thao tác từ mục Tài sản để giữ dữ liệu đồng bộ.");
+      alert("Giao dịch này được tạo từ mục Tài sản (thu nợ hoặc cho vay thêm). Hãy thao tác từ mục Tài sản để giữ dữ liệu đồng bộ.");
       return false;
+    }
+    if (item.type === "transfer" && item.transferGroupId) {
+      return removeTransferGroup(item.transferGroupId);
     }
     if (!applyTransactionImpact(item, -1)) return false;
     Transactions.remove(id);
     return true;
+  }
+
+  function transactionTypeBadge(item) {
+    if (item.type === "transfer") {
+      return `<span class="badge transfer">Chuyển khoản</span>`;
+    }
+    return `<span class="badge ${item.type}">${item.type === "income" ? "Thu nhập" : "Chi tiêu"}</span>`;
+  }
+
+  function transactionAmountCell(item) {
+    if (item.type === "transfer") {
+      const sign = item.transferRole === "in" ? "+" : "−";
+      return `<td class="align-right amount-transfer" title="${Utils.escapeHtml(item.transferTo || "")}">${sign}${Utils.formatMoney(item.amount)}</td>`;
+    }
+    return `<td class="align-right ${item.type === "income" ? "amount-income" : "amount-expense"}">${Utils.formatMoney(item.amount)}</td>`;
+  }
+
+  function transactionWalletCell(item) {
+    if (item.type === "transfer") {
+      const arrow = item.transferRole === "in" ? "←" : "→";
+      return `${Utils.escapeHtml(item.wallet)} <span class="transfer-arrow">${arrow}</span> ${Utils.escapeHtml(item.transferTo || "")}`;
+    }
+    return Utils.escapeHtml(item.wallet);
   }
 
   function sourceSummary(item, leadingLabel) {
@@ -301,31 +452,138 @@ const App = (() => {
     document.getElementById("walletFilter").innerHTML = `<option value="all">Tất cả ví</option>${options(wallets.map((wallet) => wallet.name))}`;
   }
 
-  function renderTransactions() {
-    const criteria = {
+  function transactionCriteria() {
+    return {
       search: document.getElementById("searchInput").value,
+      day: document.getElementById("dayFilter")?.value || "",
       month: document.getElementById("monthFilter").value || "all",
       type: document.getElementById("typeFilter").value || "all",
       category: document.getElementById("categoryFilter").value || "all",
       wallet: document.getElementById("walletFilter").value || "all"
     };
+  }
+
+  function transactionPeriodLabel(criteria) {
+    const walletLabel = criteria.wallet === "all" ? "tất cả ví" : criteria.wallet;
+    if (criteria.day) {
+      return `Ngày ${criteria.day} · ${walletLabel}`;
+    }
+    if (criteria.month !== "all") {
+      return `${Utils.getMonthLabel(criteria.month)} · ${walletLabel}`;
+    }
+    return `Toàn bộ · ${walletLabel}`;
+  }
+
+  function renderExpenseAnalysis(filtered, criteria) {
+    if (criteria.type === "income") return "";
+    const breakdown = Transactions.expenseByCategory(filtered);
+    if (!breakdown.length) return "";
+    const totalExpense = Utils.sum(breakdown, ([, amount]) => amount);
+    const cards = breakdown.map(([category, amount]) => {
+      const pct = totalExpense > 0 ? ((amount / totalExpense) * 100).toFixed(1) : "0";
+      const meta = categoryMeta(category);
+      return `
+        <article class="stat-card analysis-category-card">
+          <span class="stat-card-label" title="${Utils.escapeHtml(category)}">
+            <span class="stat-card-icon" aria-hidden="true">${Utils.escapeHtml(meta.icon)}</span>
+            ${Utils.escapeHtml(category)}
+          </span>
+          <strong class="amount-expense">${Utils.formatMoney(amount)}</strong>
+          <small>${pct}% tổng chi</small>
+        </article>
+      `;
+    }).join("");
+
+    return `
+      <div class="transaction-analysis">
+        <p class="analysis-heading">Phân tích chi tiêu · ${Utils.escapeHtml(transactionPeriodLabel(criteria))}</p>
+        <div class="transaction-stats-cards">${cards}</div>
+      </div>
+    `;
+  }
+
+  function renderTransactionStats(criteria) {
+    const filtered = Transactions.filter(criteria);
+    const stats = Transactions.summarize(filtered);
+    const cards = [];
+    const walletName = criteria.wallet;
+    const periodLabel = transactionPeriodLabel(criteria);
+
+    cards.push(`
+      <article class="stat-card">
+        <span>Thu nhập</span>
+        <strong class="amount-income">${Utils.formatMoney(stats.income)}</strong>
+        <small>${Utils.escapeHtml(periodLabel)} · ${stats.count} giao dịch</small>
+      </article>
+      <article class="stat-card">
+        <span>Chi tiêu</span>
+        <strong class="amount-expense">${Utils.formatMoney(stats.expense)}</strong>
+        <small>${Utils.escapeHtml(periodLabel)}</small>
+      </article>
+      <article class="stat-card">
+        <span>Ròng</span>
+        <strong class="${stats.net >= 0 ? "amount-income" : "amount-expense"}">${Utils.formatMoney(stats.net)}</strong>
+        <small>Thu − chi theo bộ lọc hiện tại</small>
+      </article>
+    `);
+
+    if (walletName !== "all") {
+      const wallet = findWallet(walletName);
+      if (wallet) {
+        const walletTx = Transactions.all().filter((item) => item.wallet === wallet.name);
+        const walletStats = Transactions.summarize(walletTx);
+        cards.push(`
+          <article class="stat-card">
+            <span>Số dư ví · ${Utils.escapeHtml(wallet.name)}</span>
+            <strong>${Utils.formatMoney(wallet.balance)}</strong>
+            <small>Hiện tại</small>
+          </article>
+          <article class="stat-card">
+            <span>Số dư ban đầu</span>
+            <strong>${Utils.formatMoney(wallet.initialBalance || 0)}</strong>
+            <small>Tạo ${wallet.createdAt || "—"}</small>
+          </article>
+          <article class="stat-card">
+            <span>Tổng thu / chi (ví)</span>
+            <strong>+${Utils.formatMoney(walletStats.income)} / −${Utils.formatMoney(walletStats.expense)}</strong>
+            <small>Toàn bộ lịch sử giao dịch</small>
+          </article>
+        `);
+      }
+    }
+
+    const analysis = walletName === "all" ? renderExpenseAnalysis(filtered, criteria) : "";
+    document.getElementById("transactionStats").innerHTML = `
+      <div class="transaction-stats-cards">${cards.join("")}</div>
+      ${analysis}
+    `;
+  }
+
+  function renderTransactions() {
+    const criteria = transactionCriteria();
+    renderTransactionStats(criteria);
     const rows = Transactions.filter(criteria);
-    document.getElementById("transactionsTable").innerHTML = rows.length ? rows.map((item) => `
+    document.getElementById("transactionsTable").innerHTML = rows.length ? rows.map((item) => {
+      const editAction = item.type === "transfer"
+        ? `App.openTransferForm('${item.id}')`
+        : `App.openTransactionForm('${item.id}')`;
+      return `
       <tr>
         <td>${item.date}</td>
-        <td><span class="badge ${item.type}">${item.type === "income" ? "Thu nhập" : "Chi tiêu"}</span></td>
+        <td>${transactionTypeBadge(item)}</td>
         <td>${categoryChip(item.category)}</td>
-        <td>${Utils.escapeHtml(item.wallet)}</td>
+        <td>${transactionWalletCell(item)}</td>
         <td>${Utils.escapeHtml(item.note)}</td>
-        <td class="align-right ${item.type === "income" ? "amount-income" : "amount-expense"}">${Utils.formatMoney(item.amount)}</td>
+        ${transactionAmountCell(item)}
         <td class="align-right">
           <span class="row-actions">
-            <button class="icon-btn action-edit" type="button" onclick="App.openTransactionForm('${item.id}')" aria-label="Sửa giao dịch" title="Sửa">✎</button>
+            <button class="icon-btn action-edit" type="button" onclick="${editAction}" aria-label="Sửa giao dịch" title="Sửa">✎</button>
             <button class="icon-btn action-delete" type="button" onclick="App.deleteTransaction('${item.id}')" aria-label="Xóa giao dịch" title="Xóa">🗑</button>
           </span>
         </td>
       </tr>
-    `).join("") : `<tr><td colspan="7" class="empty-state">Không tìm thấy giao dịch.</td></tr>`;
+    `;
+    }).join("") : `<tr><td colspan="7" class="empty-state">Không tìm thấy giao dịch.</td></tr>`;
   }
 
   function renderCategories() {
@@ -343,7 +601,7 @@ const App = (() => {
           <span class="category-sticker" style="--category-color: ${Utils.escapeHtml(cat.color)}">${Utils.escapeHtml(cat.icon || "🏷️")}</span>
           <div>
             <strong>${Utils.escapeHtml(cat.name)}</strong>
-            <small>${cat.type === "income" ? "Thu nhập" : "Chi tiêu"}</small>
+            <small>${cat.type === "income" ? "Thu nhập" : cat.type === "transfer" ? "Chuyển khoản" : "Chi tiêu"}</small>
           </div>
         </div>
         <span class="row-actions">
@@ -352,6 +610,47 @@ const App = (() => {
         </span>
       </div>
     `).join("") : `<p class="empty-state">Không tìm thấy danh mục phù hợp.</p>`;
+  }
+
+  function assetSelectionKey(kind, id) {
+    return `${kind}:${id}`;
+  }
+
+  function assetAmountByKey(key) {
+    const [kind, id] = key.split(":");
+    if (kind === "wallet") return wallets.find((item) => item.id === id)?.balance || 0;
+    if (kind === "receivable") return receivables.find((item) => item.id === id)?.amount || 0;
+    if (kind === "expected") return expectedIncome.find((item) => item.id === id)?.amount || 0;
+    return 0;
+  }
+
+  function selectedAssetSummary() {
+    const keys = [...selectedAssetKeys];
+    return {
+      count: keys.length,
+      total: Utils.sum(keys, (key) => assetAmountByKey(key))
+    };
+  }
+
+  function toggleAssetSelection(kind, id, checked) {
+    const key = assetSelectionKey(kind, id);
+    if (checked) selectedAssetKeys.add(key);
+    else selectedAssetKeys.delete(key);
+    renderAssets();
+  }
+
+  function setAllVisibleAssetSelection(items, checked) {
+    items.forEach((item) => {
+      const key = assetSelectionKey(item.kind, item.id);
+      if (checked) selectedAssetKeys.add(key);
+      else selectedAssetKeys.delete(key);
+    });
+    renderAssets();
+  }
+
+  function clearAssetSelection() {
+    selectedAssetKeys.clear();
+    renderAssets();
   }
 
   function assetTotals() {
@@ -366,8 +665,25 @@ const App = (() => {
     };
   }
 
+  function renderAssetSelectionCard(selected) {
+    if (!selected.count) return "";
+
+    return `
+      <article class="asset-total asset-selection-card">
+        <div class="asset-selection-head">
+          <span>Tổng đã chọn · ${selected.count} nguồn</span>
+          <button class="selection-clear" type="button" id="assetClearSelectionBtn">Bỏ chọn</button>
+        </div>
+        <strong>${Utils.formatMoney(selected.total)}</strong>
+        <small>Cộng giá trị các nguồn đang tick</small>
+      </article>
+    `;
+  }
+
   function renderAssets() {
     const totals = assetTotals();
+    const selected = selectedAssetSummary();
+
     document.getElementById("assetSummary").innerHTML = `
       <article class="asset-total">
         <span>Tiền sẵn dùng</span>
@@ -381,11 +697,14 @@ const App = (() => {
         <span>Thu nhập dự kiến</span>
         <strong>${Utils.formatMoney(totals.expectedTotal)}</strong>
       </article>
-      <article class="asset-total highlight">
+      <article class="asset-total ${selected.count ? "" : "highlight"}">
         <span>Tài sản ước tính</span>
         <strong>${Utils.formatMoney(totals.estimatedTotal)}</strong>
       </article>
+      ${renderAssetSelectionCard(selected)}
     `;
+
+    document.getElementById("assetClearSelectionBtn")?.addEventListener("click", clearAssetSelection);
 
     const query = normalizeSearch(fieldValue("assetSearchInput"));
     const typeFilter = fieldValue("assetTypeFilter", "all");
@@ -409,7 +728,7 @@ const App = (() => {
         kind: "receivable",
         tone: "receivable",
         amount: item.amount,
-        extraActions: `<button class="icon-btn" type="button" onclick="event.stopPropagation(); App.openReceivableSettlementForm('${item.id}')" aria-label="Ghi nhận đã thu" title="Ghi nhận đã thu">+</button>`,
+        extraActions: sourceQuickActionButton("receivable", item.id),
         editAction: `App.openReceivableForm('${item.id}')`,
         deleteAction: `App.deleteReceivable('${item.id}')`
       })),
@@ -421,25 +740,30 @@ const App = (() => {
         kind: "expected",
         tone: "expected",
         amount: item.amount,
-        extraActions: `<button class="icon-btn" type="button" onclick="event.stopPropagation(); App.openExpectedIncomeSettlementForm('${item.id}')" aria-label="Ghi nhận đã nhận" title="Ghi nhận đã nhận">+</button>`,
+        extraActions: sourceQuickActionButton("expectedIncome", item.id),
         editAction: `App.openExpectedIncomeForm('${item.id}')`,
         deleteAction: `App.deleteExpectedIncome('${item.id}')`
       }))
     ];
-    const rows = assetItems
-      .filter((item) => {
-        const matchType = typeFilter === "all" || item.kind === typeFilter;
-        const matchSearch = includesSearch([item.label, item.note, item.type, item.amount], query);
-        return matchType && matchSearch;
-      })
-      .map(assetRow)
-      .join("");
+    const visibleItems = assetItems.filter((item) => {
+      const matchType = typeFilter === "all" || item.kind === typeFilter;
+      const matchSearch = includesSearch([item.label, item.note, item.type, item.amount], query);
+      return matchType && matchSearch;
+    });
+
+    const rows = visibleItems.map(assetRow).join("");
 
     document.getElementById("assetSources").innerHTML = rows ? `
       <div class="table-wrap">
         <table class="asset-table">
           <thead>
             <tr>
+              <th class="align-center asset-select-col">
+                <label class="asset-check" title="Chọn tất cả">
+                  <input type="checkbox" class="asset-check-input" id="assetSelectAllVisible" aria-label="Chọn tất cả dòng đang hiển thị">
+                  <span class="asset-check-box" aria-hidden="true"></span>
+                </label>
+              </th>
               <th>Tên nguồn</th>
               <th class="align-center">Nhãn</th>
               <th class="align-right">Số tiền</th>
@@ -450,11 +774,32 @@ const App = (() => {
         </table>
       </div>
     ` : `<p class="empty-state">Không tìm thấy nguồn tài sản phù hợp.</p>`;
+
+    const selectAllInput = document.getElementById("assetSelectAllVisible");
+    if (selectAllInput) {
+      const visibleKeys = visibleItems.map((item) => assetSelectionKey(item.kind, item.id));
+      const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every((key) => selectedAssetKeys.has(key));
+      const someVisibleSelected = visibleKeys.some((key) => selectedAssetKeys.has(key));
+      selectAllInput.checked = allVisibleSelected;
+      selectAllInput.indeterminate = !allVisibleSelected && someVisibleSelected;
+      selectAllInput.onchange = () => setAllVisibleAssetSelection(visibleItems, selectAllInput.checked);
+    }
   }
 
   function assetRow({ id, kind, label, note, type, tone, amount, editAction, deleteAction, extraActions = "" }) {
+    const key = assetSelectionKey(kind, id);
+    const checked = selectedAssetKeys.has(key);
     return `
-      <tr class="asset-row-clickable" onclick="App.openAssetDetail('${kind}', '${id}')" role="button" tabindex="0">
+      <tr class="asset-row-clickable ${checked ? "asset-row-selected" : ""}" onclick="App.openAssetDetail('${kind}', '${id}')" role="button" tabindex="0">
+        <td class="align-center asset-select-col" onclick="event.stopPropagation()">
+          <label class="asset-check" onclick="event.stopPropagation()">
+            <input type="checkbox" class="asset-check-input" aria-label="Chọn ${Utils.escapeHtml(label)}"
+              ${checked ? "checked" : ""}
+              onclick="event.stopPropagation()"
+              onchange="App.toggleAssetSelection('${kind}', '${id}', this.checked)">
+            <span class="asset-check-box" aria-hidden="true"></span>
+          </label>
+        </td>
         <td>
           <strong>${Utils.escapeHtml(label)}</strong>
           <small>${Utils.escapeHtml(note)}</small>
@@ -465,7 +810,7 @@ const App = (() => {
         <td class="align-right">
           <strong>${Utils.formatMoney(amount || 0)}</strong>
         </td>
-        <td class="align-right">
+        <td class="align-right" onclick="event.stopPropagation()">
           <span class="asset-row-actions">
             ${extraActions}
             <button class="icon-btn action-edit" type="button" onclick="event.stopPropagation(); ${editAction}" aria-label="Sửa nguồn tiền" title="Sửa">✎</button>
@@ -503,17 +848,31 @@ const App = (() => {
   }
 
   function assetTransactionRows(transactions, { showWallet = false } = {}) {
-    return transactions.map((item) => `
-      <tr>
-        <td>${item.date}</td>
-        ${showWallet ? `<td>${Utils.escapeHtml(item.wallet)}</td>` : ""}
-        <td>${categoryChip(item.category)}</td>
-        <td>${Utils.escapeHtml(item.note || "—")}</td>
-        <td class="align-right ${item.type === "income" ? "amount-income" : "amount-expense"}">
-          ${item.type === "income" ? "+" : "−"}${Utils.formatMoney(item.amount)}
-        </td>
-      </tr>
-    `).join("");
+    return transactions.map((item) => {
+      if (item.type === "transfer") {
+        const arrow = item.transferRole === "in" ? "←" : "→";
+        return `
+          <tr>
+            <td>${item.date}</td>
+            ${showWallet ? `<td>${transactionWalletCell(item)}</td>` : ""}
+            <td>${categoryChip(item.category)}</td>
+            <td>${Utils.escapeHtml(item.note || "—")}</td>
+            <td class="align-right amount-transfer">${arrow}${Utils.formatMoney(item.amount)}</td>
+          </tr>
+        `;
+      }
+      return `
+        <tr>
+          <td>${item.date}</td>
+          ${showWallet ? `<td>${Utils.escapeHtml(item.wallet)}</td>` : ""}
+          <td>${categoryChip(item.category)}</td>
+          <td>${Utils.escapeHtml(item.note || "—")}</td>
+          <td class="align-right ${item.type === "income" ? "amount-income" : "amount-expense"}">
+            ${item.type === "income" ? "+" : "−"}${Utils.formatMoney(item.amount)}
+          </td>
+        </tr>
+      `;
+    }).join("");
   }
 
   function settlementRows(settlements) {
@@ -524,6 +883,18 @@ const App = (() => {
         <td>${categoryChip(item.category || "—")}</td>
         <td>${Utils.escapeHtml(item.note || "—")}</td>
         <td class="align-right amount-income">+${Utils.formatMoney(item.amount)}</td>
+      </tr>
+    `).join("");
+  }
+
+  function adjustmentRows(adjustments, { showWallet = false } = {}) {
+    return adjustments.map((item) => `
+      <tr>
+        <td>${item.date}</td>
+        ${showWallet ? `<td>${Utils.escapeHtml(item.wallet || "—")}</td>` : ""}
+        ${showWallet ? `<td>${item.category ? categoryChip(item.category) : "—"}</td>` : ""}
+        <td>${Utils.escapeHtml(item.note || "—")}</td>
+        <td class="align-right amount-expense">+${Utils.formatMoney(item.amount)}</td>
       </tr>
     `).join("");
   }
@@ -589,6 +960,8 @@ const App = (() => {
     const total = Number(item.originalAmount) || Number(item.amount || 0) + collected;
     const transactions = sourceLinkedTransactions("receivable", id);
     const settlements = [...(item.settlements || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const adjustments = [...(item.adjustments || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const adjustedTotal = sumAdjustments(adjustments);
 
     openAssetDetailModal("Chi tiết khoản phải thu", `
       <div class="asset-detail-head full">
@@ -613,10 +986,16 @@ const App = (() => {
           <strong>${Utils.formatMoney(item.amount)}</strong>
         </article>
         <article>
-          <span>Lần ghi nhận</span>
-          <strong>${settlements.length}</strong>
+          <span>Đã tăng nợ thêm</span>
+          <strong class="amount-expense">${Utils.formatMoney(adjustedTotal)}</strong>
         </article>
       </div>
+      ${assetDetailTableSection(
+        "Lịch sử tăng nợ (cho vay thêm)",
+        `<tr><th>Ngày</th><th>Ví cho vay</th><th>Danh mục</th><th>Ghi chú</th><th class="align-right">Số tiền</th></tr>`,
+        adjustmentRows(adjustments, { showWallet: true }),
+        5
+      )}
       ${assetDetailTableSection(
         "Lịch sử đã thu",
         `<tr><th>Ngày</th><th>Ví nhận</th><th>Danh mục</th><th>Ghi chú</th><th class="align-right">Số tiền</th></tr>`,
@@ -630,7 +1009,7 @@ const App = (() => {
         5
       )}
     `, `
-      <button class="btn btn-secondary" type="button" onclick="App.openReceivableSettlementForm('${item.id}')">Ghi nhận đã thu</button>
+      <button class="btn btn-primary" type="button" onclick="App.openSourceActionMenu('receivable', '${item.id}')">Ghi nhận / Tăng nợ</button>
       <button class="btn btn-secondary" type="button" onclick="App.openReceivableForm('${item.id}')">Chỉnh sửa</button>
     `);
   }
@@ -643,6 +1022,8 @@ const App = (() => {
     const total = Number(item.originalAmount) || Number(item.amount || 0) + collected;
     const transactions = sourceLinkedTransactions("expectedIncome", id);
     const settlements = [...(item.settlements || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const adjustments = [...(item.adjustments || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const adjustedTotal = sumAdjustments(adjustments);
 
     openAssetDetailModal("Chi tiết khoản dự kiến", `
       <div class="asset-detail-head full">
@@ -667,10 +1048,16 @@ const App = (() => {
           <strong>${Utils.formatMoney(item.amount)}</strong>
         </article>
         <article>
-          <span>Lần ghi nhận</span>
-          <strong>${settlements.length}</strong>
+          <span>Đã tăng thêm</span>
+          <strong class="amount-expense">${Utils.formatMoney(adjustedTotal)}</strong>
         </article>
       </div>
+      ${assetDetailTableSection(
+        "Lịch sử tăng khoản dự kiến",
+        `<tr><th>Ngày</th><th>Ghi chú</th><th class="align-right">Số tiền</th></tr>`,
+        adjustmentRows(adjustments),
+        3
+      )}
       ${assetDetailTableSection(
         "Lịch sử đã nhận",
         `<tr><th>Ngày</th><th>Ví nhận</th><th>Danh mục</th><th>Ghi chú</th><th class="align-right">Số tiền</th></tr>`,
@@ -684,7 +1071,7 @@ const App = (() => {
         5
       )}
     `, `
-      <button class="btn btn-secondary" type="button" onclick="App.openExpectedIncomeSettlementForm('${item.id}')">Ghi nhận đã nhận</button>
+      <button class="btn btn-primary" type="button" onclick="App.openSourceActionMenu('expectedIncome', '${item.id}')">Ghi nhận / Tăng khoản</button>
       <button class="btn btn-secondary" type="button" onclick="App.openExpectedIncomeForm('${item.id}')">Chỉnh sửa</button>
     `);
   }
@@ -943,6 +1330,7 @@ const App = (() => {
     form.innerHTML = html;
     form.onsubmit = (event) => {
       event.preventDefault();
+      if (!onSubmit) return;
       const result = onSubmit(Object.fromEntries(new FormData(form).entries()));
       if (result === false) return;
       closeModal();
@@ -951,14 +1339,133 @@ const App = (() => {
     document.getElementById("modal").classList.add("open");
   }
 
+  function sourceQuickActionButton(kind, id) {
+    const isReceivable = kind === "receivable";
+    const label = isReceivable
+      ? "Ghi nhận đã thu hoặc cho vay thêm"
+      : "Ghi nhận đã nhận hoặc tăng khoản dự kiến";
+    return `
+      <button class="icon-btn action-source" type="button"
+        onclick="event.stopPropagation(); App.openSourceActionMenu('${kind}', '${id}')"
+        aria-label="${label}" title="${label}">+</button>`;
+  }
+
+  function openSourceActionMenu(kind, id) {
+    const isReceivable = kind === "receivable";
+    const collection = isReceivable ? receivables : expectedIncome;
+    const item = collection.find((entry) => entry.id === id);
+    if (!item) return;
+
+    const settleLabel = isReceivable ? "Ghi nhận đã thu" : "Ghi nhận đã nhận";
+    const adjustLabel = isReceivable ? "Cho vay thêm / tăng nợ" : "Tăng khoản dự kiến";
+    openModal(isReceivable ? "Khoản phải thu" : "Khoản dự kiến", `
+      <div class="form-field full">
+        <label>Khoản</label>
+        <input value="${Utils.escapeHtml(item.name || "")}" disabled>
+      </div>
+      <div class="form-field full">
+        <label>Số còn lại</label>
+        <input value="${Utils.formatMoney(item.amount || 0)}" disabled>
+      </div>
+      <div class="source-action-menu full">
+        <button class="btn btn-primary" type="button"
+          onclick="App.pickSourceAction('settle', '${kind}', '${id}')">${settleLabel}</button>
+        <button class="btn btn-secondary" type="button"
+          onclick="App.pickSourceAction('adjust', '${kind}', '${id}')">${adjustLabel}</button>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-close-modal>Đóng</button>
+      </div>
+    `);
+    document.querySelector("#modalForm [data-close-modal]")?.addEventListener("click", closeModal);
+  }
+
+  function pickSourceAction(action, kind, id) {
+    closeModal();
+    setTimeout(() => {
+      if (action === "settle") {
+        openSettlementForm(kind, id);
+        return;
+      }
+      if (action === "adjust") {
+        openAdjustmentForm(kind, id);
+      }
+    }, 0);
+  }
+
   function closeModal() {
     document.getElementById("modal").classList.remove("open");
   }
 
+  function openTransferForm(id) {
+    let fromWallet = wallets[0]?.name || "Tiền mặt";
+    let toWallet = wallets[1]?.name || wallets[0]?.name || "Tiền mặt";
+    let amount = "";
+    let date = Utils.today();
+    let note = "";
+    let groupId = "";
+
+    if (id) {
+      const item = Transactions.find(id);
+      const legs = item?.transferGroupId ? findTransferLegs(item.transferGroupId) : [];
+      const outLeg = legs.find((entry) => entry.transferRole === "out") || item;
+      const inLeg = legs.find((entry) => entry.transferRole === "in");
+      if (!outLeg || outLeg.type !== "transfer") {
+        alert("Không tìm thấy giao dịch chuyển khoản.");
+        return;
+      }
+      fromWallet = outLeg.wallet;
+      toWallet = inLeg?.wallet || outLeg.transferTo || toWallet;
+      amount = outLeg.amount || "";
+      date = outLeg.date || Utils.today();
+      note = outLeg.note || "";
+      groupId = outLeg.transferGroupId || "";
+    }
+
+    if (wallets.length < 2) {
+      alert("Cần ít nhất 2 ví để chuyển tiền. Hãy thêm ví trước.");
+      return;
+    }
+
+    openModal(groupId ? "Chỉnh sửa chuyển tiền" : "Chuyển tiền giữa ví", `
+      <input type="hidden" name="transferGroupId" value="${groupId}">
+      <div class="form-field">
+        <label>Ví gửi</label>
+        <select name="fromWallet" required>${walletOptions(fromWallet)}</select>
+      </div>
+      <div class="form-field">
+        <label>Ví nhận</label>
+        <select name="toWallet" required>${walletOptions(toWallet)}</select>
+      </div>
+      <div class="form-field">
+        <label>Số tiền chuyển</label>
+        <input name="amount" type="number" min="1" required value="${amount}">
+      </div>
+      <div class="form-field">
+        <label>Ngày</label>
+        <input name="date" type="date" required value="${date}">
+      </div>
+      <div class="form-field full">
+        <label>Ghi chú</label>
+        <input name="note" placeholder="Ví dụ: Rút tiền mặt, nạp MoMo..." value="${Utils.escapeHtml(note)}">
+      </div>
+      <p class="full transfer-form-hint">Chuyển khoản <strong>không tính</strong> vào thu/chi — chỉ đổi số dư giữa các ví. Danh mục: ${Utils.escapeHtml(transferCategory())}.</p>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-close-modal>Hủy</button>
+        <button class="btn btn-primary" type="submit">${groupId ? "Cập nhật" : "Chuyển tiền"}</button>
+      </div>
+    `, (formData) => saveTransfer(formData));
+    document.querySelector("#modalForm [data-close-modal]")?.addEventListener("click", closeModal);
+  }
+
   function openTransactionForm(id) {
     const item = id ? Transactions.find(id) : { type: "expense", date: Utils.today(), wallet: "Tiền mặt" };
+    if (item?.type === "transfer") {
+      openTransferForm(id);
+      return;
+    }
     if (item?.sourceType) {
-      alert("Giao dịch này được tạo từ mục Tài sản. Hãy cập nhật tại khoản phải thu hoặc dự kiến để giữ đồng bộ.");
+      alert("Giao dịch này được tạo từ mục Tài sản. Hãy cập nhật tại khoản phải thu hoặc dự kiến (tăng nợ / ghi nhận thu) để giữ đồng bộ.");
       return;
     }
     openModal(id ? "Chỉnh sửa giao dịch" : "Thêm giao dịch", `
@@ -1081,7 +1588,8 @@ const App = (() => {
         originalAmount,
         dueDate: data.dueDate || "",
         note: data.note || "",
-        settlements: item.settlements || []
+        settlements: item.settlements || [],
+        adjustments: item.adjustments || []
       };
       receivables = data.id ? receivables.map((entry) => entry.id === data.id ? next : entry) : [next, ...receivables];
       persistReceivables();
@@ -1127,7 +1635,8 @@ const App = (() => {
         originalAmount,
         expectedDate: data.expectedDate || "",
         note: data.note || "",
-        settlements: item.settlements || []
+        settlements: item.settlements || [],
+        adjustments: item.adjustments || []
       };
       expectedIncome = data.id ? expectedIncome.map((entry) => entry.id === data.id ? next : entry) : [next, ...expectedIncome];
       persistExpectedIncome();
@@ -1190,12 +1699,136 @@ const App = (() => {
     return true;
   }
 
+  function recordSourceAdjustment(kind, id, data) {
+    const sourceItems = kind === "receivable" ? receivables : expectedIncome;
+    const current = sourceItems.find((item) => item.id === id);
+    if (!current) return false;
+
+    const addAmount = Number(data.amount) || 0;
+    if (addAmount <= 0) {
+      alert("Số tiền tăng phải lớn hơn 0.");
+      return false;
+    }
+
+    const eventId = Utils.createId(kind === "receivable" ? "recv_adj" : "exp_adj");
+    let transactionId = "";
+
+    if (kind === "receivable") {
+      if (!data.wallet) {
+        alert("Chọn ví tiền cho vay đi từ đó.");
+        return false;
+      }
+      const transaction = saveTransaction({
+        type: "expense",
+        category: data.category || assetCategory("lend"),
+        amount: addAmount,
+        wallet: data.wallet,
+        date: data.date || Utils.today(),
+        note: data.note || `${current.name} (cho vay thêm)`,
+        sourceType: kind,
+        sourceId: current.id,
+        sourceEventId: eventId
+      });
+      if (!transaction) return false;
+      transactionId = transaction.id;
+    }
+
+    const collected = sumSettlements(current.settlements);
+    const baseOriginal = Number(current.originalAmount) || Number(current.amount || 0) + collected;
+    const adjustment = {
+      id: eventId,
+      amount: addAmount,
+      date: data.date || Utils.today(),
+      note: data.note || (kind === "receivable" ? "Cho vay thêm" : "Tăng khoản dự kiến"),
+      wallet: data.wallet || "",
+      category: data.category || "",
+      transactionId
+    };
+
+    const next = {
+      ...current,
+      originalAmount: baseOriginal + addAmount,
+      amount: Number(current.amount || 0) + addAmount,
+      adjustments: [adjustment, ...(current.adjustments || [])]
+    };
+
+    if (kind === "receivable") {
+      receivables = receivables.map((item) => item.id === id ? next : item);
+      persistReceivables();
+    } else {
+      expectedIncome = expectedIncome.map((item) => item.id === id ? next : item);
+      persistExpectedIncome();
+    }
+    return true;
+  }
+
+  function openAdjustmentForm(kind, id) {
+    const collection = kind === "receivable" ? receivables : expectedIncome;
+    const item = collection.find((entry) => entry.id === id);
+    if (!item) return;
+
+    const title = kind === "receivable" ? "Tăng nợ (cho vay thêm)" : "Tăng khoản dự kiến";
+    const amountLabel = kind === "receivable" ? "Số tiền cho vay thêm" : "Số tiền tăng thêm";
+    const lendFields = kind === "receivable" ? `
+      <div class="form-field">
+        <label>Trừ từ ví</label>
+        <select name="wallet" required>${walletOptions()}</select>
+      </div>
+      <div class="form-field">
+        <label>Danh mục chi</label>
+        <select name="category" required>${categoryOptions("expense", assetCategory("lend"))}</select>
+      </div>
+      <p class="full" style="color: var(--muted); margin: 0;">Sẽ tạo giao dịch <strong>chi tiêu</strong> và trừ số dư ví tương ứng.</p>
+    ` : `
+      <p class="full" style="color: var(--muted); margin: 0;">Chỉ cập nhật số dự kiến, không tạo giao dịch chi.</p>
+    `;
+
+    openModal(title, `
+      <div class="form-field">
+        <label>Khoản</label>
+        <input value="${Utils.escapeHtml(item.name || "")}" disabled>
+      </div>
+      <div class="form-field">
+        <label>Số còn lại hiện tại</label>
+        <input value="${Utils.formatMoney(item.amount || 0)}" disabled>
+      </div>
+      <div class="form-field">
+        <label>${amountLabel}</label>
+        <input name="amount" type="number" min="1" required>
+      </div>
+      ${lendFields}
+      <div class="form-field">
+        <label>Ngày</label>
+        <input name="date" type="date" required value="${Utils.today()}">
+      </div>
+      <div class="form-field full">
+        <label>Ghi chú</label>
+        <input name="note" placeholder="${kind === "receivable" ? "Ví dụ: vay thêm đợt 2" : "Ví dụ: tăng thưởng dự kiến"}">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" data-close-modal>Hủy</button>
+        <button class="btn btn-primary" type="submit">Lưu</button>
+      </div>
+    `, (formData) => recordSourceAdjustment(kind, id, formData));
+    document.querySelector("#modalForm [data-close-modal]").addEventListener("click", closeModal);
+  }
+
+  function openReceivableAdjustmentForm(id) {
+    openAdjustmentForm("receivable", id);
+  }
+
+  function openExpectedIncomeAdjustmentForm(id) {
+    openAdjustmentForm("expectedIncome", id);
+  }
+
   function openSettlementForm(kind, id) {
     const collection = kind === "receivable" ? receivables : expectedIncome;
     const item = collection.find((entry) => entry.id === id);
     if (!item) return;
 
-    const defaultCategory = categories.find((cat) => cat.type === "income")?.name || "";
+    const defaultCategory = kind === "receivable"
+      ? assetCategory("collectReceivable")
+      : assetCategory("collectExpected");
     openModal(kind === "receivable" ? "Ghi nhận đã thu" : "Ghi nhận đã nhận", `
       <div class="form-field">
         <label>Khoản</label>
@@ -1436,16 +2069,15 @@ const App = (() => {
   }
 
   function currentDataSnapshot() {
-    const transactions = Transactions.all();
-    return {
-      categories: normalizeCategories(categories),
-      wallets: normalizeWallets(wallets, transactions),
-      receivables: receivables.map((item) => normalizeSourceEntry(item, "recv")),
-      expectedIncome: expectedIncome.map((item) => normalizeSourceEntry(item, "exp")),
-      transactions,
+    return Backup.buildSnapshot({
+      categories,
+      wallets,
+      receivables,
+      expectedIncome,
+      transactions: Transactions.all(),
       budgets: Budget.allBudgets(),
       recurring: Budget.allRecurring()
-    };
+    });
   }
 
   function downloadFile(filename, content, type) {
@@ -1458,25 +2090,9 @@ const App = (() => {
   }
 
   function exportData() {
-    const data = currentDataSnapshot();
+    const backup = Backup.wrapExport(currentDataSnapshot());
     const date = Utils.today();
-    const backup = {
-      app: "FinanceFlow",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data
-    };
-
     downloadFile(`financeflow-backup-${date}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
-  }
-
-  function parseBackupFile(raw) {
-    const parsed = JSON.parse(raw);
-    const imported = parsed.data || parsed;
-    if (!imported || typeof imported !== "object") {
-      throw new Error("INVALID_SHAPE");
-    }
-    return { meta: parsed, imported };
   }
 
   function importData(event) {
@@ -1486,19 +2102,14 @@ const App = (() => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const { meta, imported } = parseBackupFile(reader.result);
-        const walletCount = normalizeImportArray(imported.wallets).length;
-        const txCount = normalizeImportArray(imported.transactions).length;
-        const appLabel = meta.app === "FinanceFlow" ? "FinanceFlow" : "file JSON";
+        const { meta, data } = Backup.parseFile(reader.result);
+        const { appLabel, summary } = Backup.describeImport({ meta, data });
         const confirmed = confirm(
-          `Import ${appLabel} sẽ ghi đè dữ liệu hiện tại.\n` +
-          `- ${walletCount} ví\n` +
-          `- ${txCount} giao dịch\n` +
-          "Bạn muốn tiếp tục?"
+          `Import ${appLabel} sẽ ghi đè dữ liệu hiện tại.\n- ${summary}\n\nBạn muốn tiếp tục?`
         );
         if (!confirmed) return;
 
-        applyImportedData(imported);
+        if (!applyImportedData(data)) return;
         renderAll();
         alert("Nhập JSON thành công.");
       } catch (error) {
@@ -1517,12 +2128,19 @@ const App = (() => {
     openTransactionForm,
     deleteTransaction,
     openAssetDetail,
+    openTransferForm,
     openWalletForm,
     deleteWallet,
+    toggleAssetSelection,
+    clearAssetSelection,
     openReceivableForm,
+    openSourceActionMenu,
+    pickSourceAction,
+    openReceivableAdjustmentForm,
     openReceivableSettlementForm: (id) => openSettlementForm("receivable", id),
     deleteReceivable,
     openExpectedIncomeForm,
+    openExpectedIncomeAdjustmentForm,
     openExpectedIncomeSettlementForm: (id) => openSettlementForm("expectedIncome", id),
     deleteExpectedIncome,
     openCategoryForm,

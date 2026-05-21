@@ -30,12 +30,23 @@ body.dark {
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
+  overflow-x: hidden;
+}
+
+img,
+canvas,
+svg {
+  max-width: 100%;
 }
 
 button,
@@ -252,10 +263,91 @@ button {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(140px, 180px));
+  grid-template-columns: minmax(200px, 1fr) repeat(5, minmax(130px, 170px));
   gap: 12px;
   margin-bottom: 16px;
   box-shadow: none;
+}
+
+.transaction-stats {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  box-shadow: none;
+}
+
+.transaction-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.transaction-analysis {
+  display: grid;
+  gap: 10px;
+}
+
+.transaction-analysis .analysis-heading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.transaction-analysis .transaction-stats-cards {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 180px));
+  justify-content: start;
+}
+
+.transaction-analysis .analysis-category-card {
+  min-width: 0;
+  max-width: 180px;
+}
+
+.transaction-analysis .stat-card-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.transaction-analysis .stat-card-icon {
+  margin-right: 4px;
+}
+
+.transaction-stats .stat-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.transaction-stats .stat-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.transaction-stats .stat-card strong {
+  font-size: 1.15rem;
+}
+
+.transaction-stats .stat-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.transaction-stats .stat-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .list-filter {
@@ -278,6 +370,13 @@ select {
 
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+  padding: 0 4px 4px;
+}
+
+.table-wrap table {
+  margin-bottom: 2px;
 }
 
 table {
@@ -326,6 +425,29 @@ th {
 .badge.expense {
   background: rgba(194, 65, 61, 0.12);
   color: var(--expense);
+}
+
+.badge.transfer {
+  background: rgba(99, 102, 241, 0.14);
+  color: #6366f1;
+}
+
+.amount-transfer {
+  color: #6366f1;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.transfer-arrow {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.transfer-form-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .amount-income {
