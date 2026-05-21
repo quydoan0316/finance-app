@@ -91,7 +91,9 @@ const App = (() => {
     document.getElementById("addCategoryBtn").addEventListener("click", () => openCategoryForm());
     document.getElementById("addBudgetBtn").addEventListener("click", () => openBudgetForm());
     document.getElementById("addRecurringBtn").addEventListener("click", () => openRecurringForm());
-    document.getElementById("exportBtn").addEventListener("click", exportCsv);
+    document.getElementById("exportBtn").addEventListener("click", exportData);
+    document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importInput").click());
+    document.getElementById("importInput").addEventListener("change", importData);
     document.querySelectorAll("[data-close-modal]").forEach((item) => item.addEventListener("click", closeModal));
 
     ["searchInput", "monthFilter", "typeFilter", "categoryFilter"].forEach((id) => {
@@ -839,15 +841,80 @@ const App = (() => {
     }
   }
 
-  function exportCsv() {
-    const header = ["id", "type", "category", "amount", "wallet", "note", "date"];
-    const lines = Transactions.all().map((item) => header.map((key) => `"${String(item[key] ?? "").replace(/"/g, '""')}"`).join(","));
-    const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+  function currentDataSnapshot() {
+    return {
+      categories,
+      wallets,
+      receivables,
+      expectedIncome,
+      transactions: Transactions.all(),
+      budgets: Budget.allBudgets(),
+      recurring: Budget.allRecurring()
+    };
+  }
+
+  function downloadFile(filename, content, type) {
+    const blob = new Blob([content], { type });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "transactions.csv";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(link.href);
+  }
+
+  function exportData() {
+    const data = currentDataSnapshot();
+    const date = Utils.today();
+    const backup = {
+      app: "FinanceFlow",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data
+    };
+
+    downloadFile(`financeflow-backup-${date}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
+  }
+
+  function normalizeImportArray(value) {
+    return Array.isArray(value) ? value : [];
+  }
+
+  function importData(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const imported = parsed.data || parsed;
+        const confirmed = confirm("Import sẽ ghi đè dữ liệu FinanceFlow hiện tại trong trình duyệt này. Bạn muốn tiếp tục?");
+        if (!confirmed) return;
+
+        categories = normalizeImportArray(imported.categories);
+        wallets = normalizeImportArray(imported.wallets);
+        receivables = normalizeImportArray(imported.receivables).map((item) => normalizeSourceEntry(item, "recv"));
+        expectedIncome = normalizeImportArray(imported.expectedIncome).map((item) => normalizeSourceEntry(item, "exp"));
+
+        Storage.write("categories", categories);
+        Storage.write("wallets", wallets);
+        Storage.write("receivables", receivables);
+        Storage.write("expectedIncome", expectedIncome);
+        Storage.write("transactions", normalizeImportArray(imported.transactions));
+        Storage.write("budgets", normalizeImportArray(imported.budgets));
+        Storage.write("recurring", normalizeImportArray(imported.recurring));
+
+        Transactions.load();
+        Budget.load();
+        renderAll();
+        alert("Nhập JSON thành công.");
+      } catch (error) {
+        alert("Không thể nhập file này. Hãy chọn file JSON backup từ FinanceFlow.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
   }
 
   document.addEventListener("DOMContentLoaded", boot);

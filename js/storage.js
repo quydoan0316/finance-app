@@ -31,11 +31,7 @@ const Storage = (() => {
     receivables: [],
     expectedIncome: [],
     transactions: [],
-    budgets: [
-      { id: "bd_food", category: "Ăn uống", month: "2026-05", amount: 3000000 },
-      { id: "bd_transport", category: "Di chuyển", month: "2026-05", amount: 900000 },
-      { id: "bd_bills", category: "Hóa đơn", month: "2026-05", amount: 2000000 }
-    ],
+    budgets: [],
     recurring: []
   };
 

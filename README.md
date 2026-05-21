@@ -16,9 +16,116 @@ FinanceFlow là ứng dụng web quản lý tài chính cá nhân chạy hoàn t
 - Quản lý ngân sách theo tháng và theo danh mục.
 - Quản lý các khoản định kỳ.
 - Lọc giao dịch theo tháng, loại, danh mục và từ khóa.
-- Xuất danh sách giao dịch ra CSV.
+- Xuất dữ liệu đầy đủ ra file JSON backup.
+- Nhập nhanh dữ liệu từ file JSON backup của FinanceFlow.
 - Hỗ trợ giao diện sáng/tối.
 - Responsive cho desktop, tablet và mobile.
+
+## Cách dùng nhanh
+
+## 1. Mở ứng dụng
+
+Mở file:
+
+```text
+finance-app/index.html
+```
+
+Ứng dụng chạy trực tiếp trên trình duyệt và tự lưu dữ liệu vào `LocalStorage`.
+
+## 2. Thiết lập tài sản ban đầu
+
+Vào mục `Tài sản`.
+
+Bạn nên cập nhật trước các nguồn tiền:
+
+1. Bấm `Thêm ví` để thêm ví hoặc tài khoản ngân hàng.
+2. Nhập tên ví, ví dụ `VietinBank`, `MoMo`, `Tiền mặt`.
+3. Nhập số dư hiện tại của ví.
+4. Nếu có khoản người khác còn nợ bạn, bấm `Thêm khoản phải thu`.
+5. Nếu có khoản thu nhập sắp nhận nhưng chưa chắc ngày, bấm `Thêm khoản dự kiến`.
+
+Mục `Tài sản` sẽ tự tính:
+
+```text
+Tài sản ước tính = ví + phải thu còn lại + dự kiến còn lại
+```
+
+## 3. Ghi nhận giao dịch hằng ngày
+
+Bấm `Thêm giao dịch`.
+
+Với giao dịch thu nhập:
+
+- chọn loại `Thu nhập`
+- chọn danh mục thu nhập
+- nhập số tiền
+- chọn ví nhận tiền
+
+Với giao dịch chi tiêu:
+
+- chọn loại `Chi tiêu`
+- chọn danh mục chi tiêu
+- nhập số tiền
+- chọn ví bị trừ tiền
+
+Khi lưu giao dịch:
+
+- thu nhập sẽ cộng vào ví
+- chi tiêu sẽ trừ khỏi ví
+- Dashboard và mục Tài sản sẽ cập nhật lại
+
+## 4. Ghi nhận tiền đã thu từ khoản phải thu hoặc dự kiến
+
+Trong mục `Tài sản`, các dòng `Phải thu` và `Dự kiến` có nút `+`.
+
+Dùng nút này khi bạn nhận được một phần hoặc toàn bộ khoản tiền.
+
+Khi ghi nhận:
+
+- khoản còn lại sẽ giảm
+- ví được chọn sẽ tăng số dư
+- hệ thống tự tạo một giao dịch thu nhập tương ứng
+
+Không nên sửa/xóa trực tiếp giao dịch tự sinh này trong mục `Giao dịch`; hãy quản lý từ mục `Tài sản` để dữ liệu không bị lệch.
+
+## 5. Quản lý danh mục
+
+Vào mục `Danh mục`.
+
+Bạn có thể:
+
+- thêm danh mục thu nhập
+- thêm danh mục chi tiêu
+- đổi icon
+- đổi màu nhãn
+
+Danh mục sẽ được dùng khi thêm giao dịch, tạo ngân sách và ghi nhận khoản đã thu.
+
+## 6. Quản lý ngân sách
+
+Vào mục `Ngân sách`.
+
+Bạn có thể đặt hạn mức theo tháng và danh mục. Dashboard sẽ hiển thị trạng thái đã chi và còn lại trong tháng hiện tại.
+
+## 7. Nhập / Xuất JSON
+
+Ở thanh trên cùng:
+
+- `Xuất JSON`: tải xuống một file backup đầy đủ.
+- `Nhập JSON`: nạp lại file backup đã xuất trước đó.
+
+File xuất ra có dạng:
+
+```text
+financeflow-backup-YYYY-MM-DD.json
+```
+
+Lưu ý:
+
+- file JSON là cách backup/khôi phục chính của app
+- khi nhập JSON, dữ liệu hiện tại trong trình duyệt sẽ bị ghi đè
+- nên xuất JSON định kỳ nếu dữ liệu quan trọng
 
 ## Cách hoạt động của tài sản
 
@@ -196,6 +303,16 @@ Lưu ý:
 - dữ liệu chỉ tồn tại trên trình duyệt và thiết bị hiện tại
 - nếu xóa cache hoặc đổi trình duyệt, dữ liệu sẽ không tự đồng bộ
 
+## Nhập / Xuất JSON
+
+Nút `Xuất JSON` sẽ tải xuống một file backup đầy đủ:
+
+```text
+financeflow-backup-YYYY-MM-DD.json
+```
+
+Nút `Nhập JSON` dùng để nạp lại file JSON backup. Khi nhập, dữ liệu FinanceFlow trong trình duyệt hiện tại sẽ được ghi đè bằng dữ liệu trong file.
+
 ## Kiến trúc mã nguồn
 
 ### `js/storage.js`
@@ -249,6 +366,5 @@ Lưu ý:
 
 - thêm xác thực số dư để tránh chi vượt quá số tiền trong ví
 - thêm chuyển tiền giữa hai ví
-- thêm import/export dữ liệu JSON đầy đủ
 - thêm lịch sử chi tiết cho từng lần thu của `Phải thu` và `Dự kiến`
 - thêm cơ chế reset dữ liệu trực tiếp từ giao diện
