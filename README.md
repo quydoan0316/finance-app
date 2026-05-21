@@ -138,14 +138,13 @@ Phù hợp khi cuối tháng bạn muốn đối lại sổ với số trên app
 
 ---
 
-## Khoản định kỳ
+## Khoản định kỳ (theo tháng)
 
-- Ghi nhớ tên, chu kỳ (hàng tháng / hàng năm), loại thu/chi, danh mục và ví mặc định.
-- **Số tiền cố định** (Netflix, tiền nhà) hoặc **số tiền thay đổi theo kỳ** (điện, nước — nhập tiền thật khi thanh toán).
-- Chọn **tháng** trên màn Định kỳ để xem kỳ đó **đã thanh toán chưa**; lọc **Chưa thanh toán** / **Đã thanh toán**.
-- Hàng năm: trạng thái tính theo **năm** (ví dụ chọn tháng 5/2026 = xem đã trả trong năm 2026 chưa).
-- Nút **Thanh toán** → tạo giao dịch (chọn đúng **ngày** trong kỳ đang xem). Đã trả rồi vẫn có **Ghi thêm** nếu cần ghi lần nữa.
-- Dòng tóm tắt: *“Kỳ Tháng 5/2026: 3/5 đã thanh toán”*.
+- Các khoản **lặp hàng tháng**: tên, **tháng bắt đầu** (mặc định = tháng đang xem), **tháng kết thúc** tùy chọn, loại thu/chi, danh mục mặc định.
+- **Số tiền cố định** hoặc **theo hóa đơn** (điện, nước — nhập tiền khi thanh toán).
+- Chọn **tháng** trên màn Định kỳ → xem **đã / chưa thanh toán**; lọc theo trạng thái.
+- **Thanh toán** → chọn ví → **Ghi nhận giao dịch** cho tháng đang xem. Đã trả có thể **Ghi thêm**.
+- Tóm tắt: *“Kỳ Tháng 5/2026: 3/5 đã thanh toán”*.
 
 ---
 

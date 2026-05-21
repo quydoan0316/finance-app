@@ -489,6 +489,12 @@ th {
   color: var(--muted);
 }
 
+.recurring-pay-amount {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
 .checkbox-field {
   display: flex;
   align-items: flex-start;
@@ -499,6 +505,41 @@ th {
 
 .checkbox-field input {
   margin-top: 3px;
+}
+
+.checkbox-field.compact {
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, var(--surface));
+}
+
+.checkbox-field.compact input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  margin: 0;
+  accent-color: var(--primary, #246bfe);
+  cursor: pointer;
+}
+
+.checkbox-field.compact span {
+  flex: 1;
+}
+
+.badge.recurring-inactive {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--muted);
+}
+
+.recurring-row.is-inactive {
+  opacity: 0.72;
 }
 
 .transfer-form-hint {

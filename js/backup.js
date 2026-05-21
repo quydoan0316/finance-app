@@ -170,10 +170,12 @@ const Backup = (() => {
       name: String(item.name || "").trim(),
       amount: amountVariable ? 0 : Number(item.amount) || 0,
       amountVariable,
-      cycle: item.cycle || "monthly",
+      cycle: "monthly",
       paymentType: item.paymentType === "income" ? "income" : "expense",
       category: Storage.translate(item.category) || String(item.category || "").trim(),
-      wallet: Storage.translate(item.wallet) || String(item.wallet || "").trim()
+      wallet: "",
+      startMonth: item.startMonth || (item.startDate ? item.startDate.slice(0, 7) : "") || Utils.currentMonth(),
+      endMonth: item.endMonth || (item.endDate ? item.endDate.slice(0, 7) : "")
     };
   }
 

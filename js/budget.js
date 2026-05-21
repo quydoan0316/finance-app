@@ -133,14 +133,12 @@ const Budget = (() => {
     return "—";
   }
 
-  function recurringPeriodLabel(item, month) {
-    if (item?.cycle === "yearly") return `Năm ${month.slice(0, 4)}`;
+  function recurringPeriodLabel(_item, month) {
     return Utils.getMonthLabel(month);
   }
 
   function paymentMatchesPeriod(transaction, item, month) {
     if (!transaction?.recurringId || transaction.recurringId !== item.id) return false;
-    if (item.cycle === "yearly") return transaction.date.startsWith(month.slice(0, 4));
     return transaction.date.startsWith(month);
   }
 
@@ -154,6 +152,31 @@ const Budget = (() => {
     return !!findRecurringPayment(transactions, item, month);
   }
 
+  function recurringStartMonth(item) {
+    return item?.startMonth || (item?.startDate ? item.startDate.slice(0, 7) : "");
+  }
+
+  function recurringEndMonth(item) {
+    return item?.endMonth || (item?.endDate ? item.endDate.slice(0, 7) : "");
+  }
+
+  function isActiveInMonth(item, month) {
+    const startMonth = recurringStartMonth(item);
+    const endMonth = recurringEndMonth(item);
+    if (startMonth && month < startMonth) return false;
+    if (endMonth && month > endMonth) return false;
+    return true;
+  }
+
+  function dateRangeLabel(item) {
+    const startMonth = recurringStartMonth(item);
+    const endMonth = recurringEndMonth(item);
+    if (!startMonth && !endMonth) return "";
+    if (startMonth && endMonth) return `${Utils.getMonthLabel(startMonth)} → ${Utils.getMonthLabel(endMonth)}`;
+    if (startMonth) return `Từ ${Utils.getMonthLabel(startMonth)}`;
+    return `Đến ${Utils.getMonthLabel(endMonth)}`;
+  }
+
   function upsertRecurring(data) {
     const paymentType = data.paymentType === "income" ? "income" : "expense";
     const amountVariable = data.amountVariable === true || data.amountVariable === "on";
@@ -163,10 +186,12 @@ const Budget = (() => {
       name: data.name,
       amount,
       amountVariable,
-      cycle: data.cycle || "monthly",
+      cycle: "monthly",
       paymentType,
       category: String(data.category || "").trim(),
-      wallet: String(data.wallet || "").trim()
+      wallet: "",
+      startMonth: data.startMonth || Utils.currentMonth(),
+      endMonth: data.endMonth || ""
     };
     saveRecurring(data.id ? recurring.map((entry) => entry.id === data.id ? item : entry) : [item, ...recurring]);
   }
@@ -214,6 +239,10 @@ const Budget = (() => {
     recurringPeriodLabel,
     findRecurringPayment,
     isPaidInPeriod,
+    isActiveInMonth,
+    recurringStartMonth,
+    recurringEndMonth,
+    dateRangeLabel,
     statusFor
   };
 })();
