@@ -21,9 +21,15 @@ const FinanceCharts = (() => {
     if (charts[id]) charts[id].destroy();
   }
 
+  function isTransferCategory(item) {
+    return item.type === "transfer" || item.category === Storage.transferCategoryName();
+  }
+
   function renderCategory(transactions) {
     destroy("category");
-    const expenses = transactions.filter((item) => item.type === "expense" && item.date.startsWith(Utils.currentMonth()));
+    const expenses = transactions.filter(
+      (item) => item.type === "expense" && !isTransferCategory(item) && item.date.startsWith(Utils.currentMonth())
+    );
     const grouped = expenses.reduce((acc, item) => {
       acc[item.category] = (acc[item.category] || 0) + Number(item.amount);
       return acc;
@@ -76,7 +82,9 @@ const FinanceCharts = (() => {
 
     const wallets = Storage.read("wallets", []);
     const initialBalance = wallets.reduce((sum, w) => sum + (Number(w.initialBalance) || 0), 0);
-    const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sorted = [...transactions]
+      .filter((item) => Transactions.isCashflow(item))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     const balanceChartScales = {
       ...chartOptions().scales,
@@ -121,7 +129,6 @@ const FinanceCharts = (() => {
     const spendingData = [];
 
     sorted.forEach((item) => {
-      if (!Transactions.isCashflow(item)) return;
       const amount = Number(item.amount);
       balance += item.type === "income" ? amount : -amount;
       if (item.type === "expense") spending += amount;
