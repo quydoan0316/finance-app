@@ -6,7 +6,7 @@ FinanceFlow giúp bạn theo dõi tiền trong các **ví**, khoản **phải th
 
 ## Bắt đầu
 
-1. Mở file **`index.html`** trong thư mục `finance-app` (nhấ đúp hoặc kéo vào Chrome, Edge, Firefox…).
+1. Mở file **`index.html`** trong thư mục `finance-app` (nhấn đúp hoặc kéo vào Chrome, Edge, Firefox…).
 2. Lần đầu mở cần **có internet** để tải biểu đồ; sau đó có thể dùng offline nếu trang đã mở sẵn.
 3. Nên **xuất bản sao JSON** định kỳ (nút trên thanh công cụ) — nếu xóa dữ liệu trình duyệt hoặc đổi máy, bạn có thể **nhập lại** file đó.
 
